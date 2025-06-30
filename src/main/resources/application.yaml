@@ -1,0 +1,16 @@
+server:
+  port: 6651
+
+deepvision:
+  tenant-id: zyxx
+  ak: 7a04e90ad5e14b53
+  sk: b53a4eb44e2c42d98b0fbda93086337d
+#  api-base-url: http://10.250.186.247:20201/ds/api/v2/external
+  api-base-url: http://127.0.0.1:20201/ds/api/v2/external
+  file-scan:
+    dir: D:\\shentong\\    # 需要扫描的文件目录
+    backup-dir: D:\\backup\\shentong\\ # 备份目录
+    cron: 0/10 * * * * ?         # 每30s执行一次
+    clean-days: 7               # 备份文件保留天数
+  log:
+    dir: D:\\logs\\shentong\\   # 日志目录
