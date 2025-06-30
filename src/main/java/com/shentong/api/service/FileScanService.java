@@ -3,25 +3,26 @@ package com.shentong.api.service;
 import com.shentong.api.config.ApiConfig;
 import com.shentong.api.model.FileUploadRecord;
 import com.shentong.api.util.FileUtil;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
 import java.util.Date;
+import java.util.Optional;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class FileScanService {
 
-    @Autowired
-    private ApiConfig apiConfig;
+    private final ApiConfig apiConfig;
+    private final DeepVisionService deepVisionService;
 
-    @Autowired
-    private DeepVisionService deepVisionService;
+    private String currentKnowledgeId;
+    private int currentKnowledgeFileCount = 0;
 
-    // 定时任务扫描文件
     @Scheduled(cron = "${deepvision.file-scan.cron}")
     public void scanFiles() {
         log.info("开始扫描文件...");
@@ -34,65 +35,86 @@ public class FileScanService {
             return;
         }
 
-        // 获取所有月份子目录
         File[] monthDirs = dir.listFiles(File::isDirectory);
         if (monthDirs == null || monthDirs.length == 0) {
             log.info("没有找到月份子目录");
             return;
         }
-        log.info("扫描到的文件夹数量:{}", monthDirs.length);
 
         for (File monthDir : monthDirs) {
-            log.info("循环当前文件夹文件,文件夹名称:{}", monthDir.getName());
-            File[] files = monthDir.listFiles();
-            if (files == null) {
-                log.info("文件夹{}下不存在文件,跳过当前文件夹", monthDir.getName());
-                continue;
-            }
-            log.info("当前文件夹名称:{},扫描到的文件数量为:{}", monthDir.getName(), files.length);
+            log.info("处理文件夹: {}", monthDir.getName());
+
+            File[] files = Optional.ofNullable(monthDir.listFiles()).orElse(new File[0]);
+            log.info("文件夹 {} 中有 {} 个文件", monthDir.getName(), files.length);
+
             for (File file : files) {
-                log.info("开始创建知识库上传文件,文件名称:{}", file.getName());
                 if (file.isFile()) {
-                    try {
-                        // 1. 上传文件
-                        String knowledgeId = deepVisionService.createKnowledgeBase(
-                                "知识库_" + System.currentTimeMillis(),
-                                "自动创建的知识库"
-                        );
-
-                        deepVisionService.uploadFileCreateUnit(knowledgeId, file.getAbsolutePath());
-
-                        // 2. 备份文件
-                        String backupPath = apiConfig.getFileScan().getBackupDir() +
-                                "/" + monthDir.getName() + "/" + file.getName();
-                        FileUtil.backupFile(file.getAbsolutePath(), backupPath);
-
-                        // 3. 记录上传日志
-                        FileUploadRecord record = new FileUploadRecord();
-                        record.setFileName(file.getName());
-                        record.setFilePath(file.getAbsolutePath());
-                        record.setBackupPath(backupPath);
-                        record.setUploadTime(new Date());
-                        record.setKnowledgeId(knowledgeId);
-                        // saveToDatabase(record); // 实际项目中应该保存到数据库
-
-                        // 4. 删除原文件
-                        file.delete();
-
-                        log.info("文件 {} 上传并处理成功", file.getName());
-                    } catch (Exception e) {
-                        log.error("处理文件 {} 失败: {}", file.getName(), e.getMessage());
-                    }
+                    processFile(file, monthDir.getName());
                 }
             }
         }
 
-        // 清理过期备份文件
         cleanExpiredBackupFiles();
+        resetKnowledgeTracking();
     }
 
-    // 清理过期备份文件
+    private void processFile(File file, String monthDirName) {
+        try {
+            // 1. 检查是否需要新建知识库（当前知识库为空或已满）
+            if (currentKnowledgeId == null || currentKnowledgeFileCount >= apiConfig.getKnowledgeBaseMaxFiles()) {
+                createNewKnowledgeBase();
+            }
+
+            // 2. 上传文件到当前知识库
+            deepVisionService.uploadFileCreateUnit(currentKnowledgeId, file.getAbsolutePath());
+            currentKnowledgeFileCount++;
+
+            // 3. 备份文件
+            String backupPath = apiConfig.getFileScan().getBackupDir() +
+                    "/" + monthDirName + "/" + file.getName();
+            FileUtil.backupFile(file.getAbsolutePath(), backupPath);
+
+            // 4. 记录上传日志
+            FileUploadRecord record = new FileUploadRecord();
+            record.setFileName(file.getName());
+            record.setFilePath(file.getAbsolutePath());
+            record.setBackupPath(backupPath);
+            record.setUploadTime(new Date());
+            record.setKnowledgeId(currentKnowledgeId);
+            // saveToDatabase(record);
+
+            // 5. 删除原文件
+            file.delete();
+
+            log.info("文件 {} 上传到知识库 {} 成功 (当前知识库文件数: {}/{})",
+                    file.getName(),
+                    currentKnowledgeId,
+                    currentKnowledgeFileCount,
+                    apiConfig.getKnowledgeBaseMaxFiles());
+        } catch (Exception e) {
+            log.error("处理文件 {} 失败: {}", file.getName(), e.getMessage());
+            if (currentKnowledgeFileCount >= apiConfig.getKnowledgeBaseMaxFiles()) {
+                resetKnowledgeTracking();
+            }
+        }
+    }
+
+    private void createNewKnowledgeBase() {
+        currentKnowledgeId = deepVisionService.createKnowledgeBase(
+                "知识库_" + System.currentTimeMillis(),
+                "自动创建的知识库"
+        );
+        currentKnowledgeFileCount = 0;
+        log.info("创建新知识库: {}", currentKnowledgeId);
+    }
+
+    private void resetKnowledgeTracking() {
+        currentKnowledgeId = null;
+        currentKnowledgeFileCount = 0;
+    }
+
     private void cleanExpiredBackupFiles() {
+        // 保持原逻辑不变
         int cleanDays = apiConfig.getFileScan().getCleanDays();
         if (cleanDays <= 0) {
             return;

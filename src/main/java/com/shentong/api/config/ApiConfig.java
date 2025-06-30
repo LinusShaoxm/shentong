@@ -14,6 +14,8 @@ public class ApiConfig {
     private String apiBaseUrl;
     private FileScanConfig fileScan;
     private LogConfig log;
+    private int knowledgeBaseMaxFiles; // 新增：知识库最大文件数
+
 
     @Data
     public static class FileScanConfig {

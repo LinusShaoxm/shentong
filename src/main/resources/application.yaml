@@ -7,6 +7,7 @@ deepvision:
   sk: b53a4eb44e2c42d98b0fbda93086337d
 #  api-base-url: http://10.250.186.247:20201/ds/api/v2/external
   api-base-url: http://127.0.0.1:20201/ds/api/v2/external
+  knowledge-base-max-files: 10  # 知识库最大文件数（可配置）
   file-scan:
     dir: D:\\shentong\\    # 需要扫描的文件目录
     backup-dir: D:\\backup\\shentong\\ # 备份目录
