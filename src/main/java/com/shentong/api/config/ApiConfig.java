@@ -21,6 +21,7 @@ public class ApiConfig {
     public static class FileScanConfig {
         private String dir;
         private String backupDir;
+        private String outputDir;
         private String cron;
         private int cleanDays;
     }

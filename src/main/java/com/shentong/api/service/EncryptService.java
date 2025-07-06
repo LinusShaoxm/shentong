@@ -2,6 +2,7 @@ package com.shentong.api.service;
 
 import com.shentong.api.util.DateUtil;
 import com.shentong.api.util.MD5Util;
+import lombok.extern.slf4j.Slf4j;
 import org.bouncycastle.crypto.CipherParameters;
 import org.bouncycastle.crypto.engines.SM4Engine;
 import org.bouncycastle.crypto.params.KeyParameter;
@@ -16,6 +17,7 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.Date;
 
+@Slf4j
 @Service
 public class EncryptService {
 
@@ -50,7 +52,9 @@ public class EncryptService {
     public byte[] generateDynamicKey(String sk, Date date) {
         String dateStr = DateUtil.formatGMT(date);
         String md5Hash = MD5Util.getMD5Hash(sk, dateStr);
-        return Hex.decode(md5Hash);
+        byte[] decode = Hex.decode(md5Hash);
+        log.info("MD5Util数据处理 ------> sk:{} \n dateStr:{} \n md5Hash:{} \n decodeByte[]:{}", sk, dateStr, md5Hash, decode);
+        return decode;
     }
 
     // SM4加密
@@ -58,19 +62,20 @@ public class EncryptService {
         try {
             byte[] key = generateDynamicKey(sk, date);
             byte[] input = plainText.getBytes(StandardCharsets.UTF_8);
-            
+
             SM4Engine sm4Engine = new SM4Engine();
             CipherParameters params = new KeyParameter(key);
             sm4Engine.init(true, params);
-            
+
             byte[] paddedInput = pkcs7Padding(input);
             byte[] output = new byte[paddedInput.length];
-            
+
             for (int i = 0; i < paddedInput.length; i += BLOCK_SIZE) {
                 sm4Engine.processBlock(paddedInput, i, output, i);
             }
-            
-            return Base64.getEncoder().encodeToString(output);
+            String encodeToString = Base64.getEncoder().encodeToString(output);
+            log.info("加密成功 sk:{} \n date:{} \n plainText:{} \n 加密结果:{}", sk, date, plainText, encodeToString);
+            return encodeToString;
         } catch (Exception e) {
             throw new RuntimeException("SM4加密失败", e);
         }
@@ -81,19 +86,22 @@ public class EncryptService {
         try {
             byte[] key = generateDynamicKey(sk, date);
             byte[] input = Base64.getDecoder().decode(encryptedText);
-            
+
             SM4Engine sm4Engine = new SM4Engine();
             CipherParameters params = new KeyParameter(key);
             sm4Engine.init(false, params);
-            
+
             byte[] output = new byte[input.length];
-            
+
             for (int i = 0; i < input.length; i += BLOCK_SIZE) {
                 sm4Engine.processBlock(input, i, output, i);
             }
-            
+
             byte[] unpadded = pkcs7Unpadding(output);
-            return new String(unpadded, StandardCharsets.UTF_8);
+            String sm4Decrypt = new String(unpadded, StandardCharsets.UTF_8);
+            log.info("解密成功 sk:{} \n date:{} \n encryptedText:{} \n 解密结果:{}", sk, date, encryptedText, sm4Decrypt);
+
+            return sm4Decrypt;
         } catch (Exception e) {
             throw new RuntimeException("SM4解密失败", e);
         }
