@@ -1,6 +1,7 @@
 package com.shentong.api.example;
 
 import com.shentong.api.service.EncryptService;
+import com.shentong.api.util.MD5Util;
 import org.bouncycastle.util.encoders.Hex;
 
 import java.text.SimpleDateFormat;
@@ -22,7 +23,7 @@ public class App {
 
             SM4Example sm = new SM4Example();
             String sk = "b0efd479020923419ff193ec0dbcb3dd1989898989";
-            String hexKey = MD5Utils.getMD5Hash(sk, dateString);
+            String hexKey = MD5Util.getMD5Hash(sk, dateString);
             byte[] key = Hex.decode(hexKey);//动态密钥
 
             //String plainText="uuid=11&userId=22&tenantId=33&channelId=4A&token=44&apiKey=55";//示例数据
