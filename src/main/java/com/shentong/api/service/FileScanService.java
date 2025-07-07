@@ -2,18 +2,17 @@ package com.shentong.api.service;
 
 import com.shentong.api.config.ApiConfig;
 import com.shentong.api.model.FileUploadRecord;
+import com.shentong.api.service.DeepVisionService;
 import com.shentong.api.util.FileUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.xwpf.usermodel.*;
-import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTTblPr;
-import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTTcPr;
-import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTTrPr;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.io.*;
 import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -40,8 +39,8 @@ public class FileScanService {
             return;
         }
 
-        // 处理Word文档合并
-        processWordDocuments(rootDir);
+        // 处理所有支持的文件类型（docx, doc, txt）
+        processFiles(rootDir);
 
         // 清理过期文件
         cleanExpiredBackupFiles();
@@ -49,7 +48,7 @@ public class FileScanService {
         log.info("===== 处理完成 =====");
     }
 
-    private void processWordDocuments(File rootDir) {
+    private void processFiles(File rootDir) {
         // 获取所有子文件夹
         File[] subDirs = rootDir.listFiles(File::isDirectory);
         if (subDirs == null || subDirs.length == 0) {
@@ -57,236 +56,155 @@ public class FileScanService {
             return;
         }
 
+        // 获取配置的支持的文件扩展名（如 docx,doc,txt）
+        String supportedExtensions = apiConfig.getFileScan().getSupportedExtensions();
+        List<String> extensions = Arrays.asList(supportedExtensions.split(","));
+
         for (File subDir : subDirs) {
             log.info("\n处理目录: {}", subDir.getName());
 
-            // 获取当前文件夹下所有Word文档
-            List<File> wordFiles = new ArrayList<>();
+            // 获取当前文件夹下所有支持的文件
+            List<File> files = new ArrayList<>();
             try {
-                wordFiles = Files.walk(subDir.toPath())
-                        .filter(p -> p.toString().toLowerCase().endsWith(".docx"))
+                files = Files.walk(subDir.toPath())
+                        .filter(p -> {
+                            String fileName = p.toString().toLowerCase();
+                            return extensions.stream().anyMatch(fileName::endsWith);
+                        })
                         .map(Path::toFile)
                         .collect(Collectors.toList());
             } catch (Exception e) {
-                log.error("获取当前文件夹下所有Word文档异常,文件夹:{},异常信息:", subDir, e);
+                log.error("获取当前文件夹下文件异常, 文件夹: {}, 异常信息:", subDir, e);
             }
 
-            if (wordFiles.isEmpty()) {
-                log.info("目录 {} 中没有Word文档", subDir.getName());
+            if (files.isEmpty()) {
+                log.info("目录 {} 中没有支持的文件", subDir.getName());
                 continue;
             }
 
-            // 打印待合并文档信息
-            logDocumentInfo(wordFiles);
+            // 打印待处理文件信息
+            logFileInfo(files);
 
-            // 合并文档
-            File mergedFile = mergeWordFiles(wordFiles);
-            if (mergedFile == null) {
-                log.error("目录 {} 文档合并失败", subDir.getName());
-                continue;
+            // 合并所有文件（docx, doc, txt）到一个 Word 文档
+            File mergedFile = mergeAllFilesToWord(files, subDir.getName());
+            if (mergedFile != null) {
+                processMergedDocument(mergedFile, subDir.getName());
             }
-
-            // 处理合并后的文档
-            processMergedDocument(mergedFile, subDir.getName());
         }
     }
 
-    private void logDocumentInfo(List<File> documents) {
-        log.info("待合并文档列表 ({}个):", documents.size());
+    /**
+     * 合并所有文件（docx, doc, txt）到一个 Word 文档
+     */
+    private File mergeAllFilesToWord(List<File> files, String folderName) {
+        XWPFDocument mergedDoc = new XWPFDocument();
+        String outputDir = apiConfig.getFileScan().getOutputDir();
+        String mergedFileName = outputDir + "/" + folderName + "_merged.docx";
 
-        for (File doc : documents) {
-            // 检查文件是否为空
-            if (doc.length() == 0) {
-                log.warn("跳过空文件: {}", doc.getAbsolutePath());
-                continue;
-            }
-
-            try (InputStream is = Files.newInputStream(doc.toPath())) {
-                // 再次验证流是否可读（双重检查）
-                if (is.available() <= 0) {
-                    log.warn("文件流为空: {}", doc.getAbsolutePath());
+        try {
+            for (File file : files) {
+                if (file.length() == 0) {
+                    log.warn("跳过空文件: {}", file.getAbsolutePath());
                     continue;
                 }
 
-                XWPFDocument document = new XWPFDocument(is);
-
-                // 提取文档内容摘要
-                StringBuilder contentPreview = new StringBuilder();
-                int paraCount = 0;
-                List<XWPFParagraph> paragraphs = document.getParagraphs();
-
-                log.debug("文档 {} 段落数: {}", doc.getName(), paragraphs.size());
-
-                for (XWPFParagraph para : paragraphs) {
-                    if (paraCount++ < 3) { // 只预览前3段
-                        String text = para.getText();
-                        if (text != null && !text.trim().isEmpty()) {
-                            contentPreview.append(text.substring(0, Math.min(text.length(), 50)))
-                                    .append(text.length() > 50 ? "..." : "")
-                                    .append(" | ");
-                        }
-                    } else {
-                        break;
-                    }
+                String fileName = file.getName().toLowerCase();
+                if (fileName.endsWith(".docx") || fileName.endsWith(".doc")) {
+                    // 处理 Word 文档（直接复制段落和表格）
+                    mergeWordFile(mergedDoc, file);
+                } else if (fileName.endsWith(".txt")) {
+                    // 处理 TXT 文件（读取内容并写入 Word）
+                    mergeTxtFile(mergedDoc, file);
                 }
 
-                // 统计表格数量
-                int tableCount = document.getTables().size();
-                log.debug("文档 {} 表格数: {}", doc.getName(), tableCount);
-
-                log.info("- {} ({}字节, {}段, {}表, 预览: {})",
-                        doc.getName(),
-                        doc.length(),
-                        paragraphs.size(),
-                        tableCount,
-                        contentPreview.toString().replaceAll("\\s+", " "));
-
-                document.close();
-
-            } catch (org.apache.poi.EmptyFileException e) {
-                log.error("空文件异常 - 文件: {} (大小: {}字节)",
-                        doc.getAbsolutePath(), doc.length(), e);
-            } catch (IOException e) {
-                log.error("读取文档失败 - 文件: {}, 错误: {}",
-                        doc.getAbsolutePath(), e.getMessage());
-                if (log.isDebugEnabled()) {
-                    log.debug("堆栈信息:", e);
-                }
-            } catch (Exception e) {
-                log.error("处理文档时发生意外错误 - 文件: {}, 错误: {}",
-                        doc.getAbsolutePath(), e.getMessage());
-                if (log.isDebugEnabled()) {
-                    log.debug("堆栈信息:", e);
-                }
-            }
-        }
-    }
-
-    private File mergeWordFiles(List<File> wordFiles) {
-        try (XWPFDocument mergedDoc = new XWPFDocument()) {
-            log.info("开始合并 {} 个文档", wordFiles.size());
-
-            for (int i = 0; i < wordFiles.size(); i++) {
-                File file = wordFiles.get(i);
-                log.info("正在处理文档 {}/{}: {}", i + 1, wordFiles.size(), file.getName());
-
-                try (FileInputStream fis = new FileInputStream(file);
-                     XWPFDocument doc = new XWPFDocument(fis)) {
-
-                    // 添加文档间分隔（空行）
-                    if (i > 0) {
-                        for (int j = 0; j < 3; j++) {
-                            mergedDoc.createParagraph().createRun().addBreak();
-                        }
-                    }
-
-                    // 复制所有段落
-                    for (XWPFParagraph para : doc.getParagraphs()) {
-                        XWPFParagraph newPara = mergedDoc.createParagraph();
-                        copyParagraph(para, newPara);
-                    }
-
-                    // 复制所有表格
-                    for (XWPFTable table : doc.getTables()) {
-                        XWPFTable newTable = mergedDoc.createTable();
-                        copyTable(table, newTable);
-                    }
+                // 添加分页符（除最后一个文件外）
+                if (!file.equals(files.get(files.size() - 1))) {
+                    mergedDoc.createParagraph().createRun().addBreak(BreakType.PAGE);
                 }
             }
 
-            // 保存合并后的文档
-            String outputDir = apiConfig.getFileScan().getOutputDir();
-            new File(outputDir).mkdirs();
+            // 保存合并后的 Word 文档
+            FileOutputStream out = new FileOutputStream(mergedFileName);
+            mergedDoc.write(out);
+            out.close();
+            log.info("合并完成: {}", mergedFileName);
 
-            String mergedName = "merged_" + System.currentTimeMillis() + ".docx";
-            File mergedFile = new File(outputDir, mergedName);
-
-            try (FileOutputStream out = new FileOutputStream(mergedFile)) {
-                mergedDoc.write(out);
-            }
-
-            log.info("合并完成，生成文件: {} ({}字节)",
-                    mergedFile.getName(), mergedFile.length());
-
-            return mergedFile;
-
+            return new File(mergedFileName);
         } catch (Exception e) {
-            log.error("文档合并过程中出错: {}", e.getMessage());
+            log.error("合并文件失败: {}", e.getMessage(), e);
             return null;
-        }
-    }
-
-    private void copyParagraph(XWPFParagraph source, XWPFParagraph target) {
-        // 复制段落样式
-        if (source.getCTP() != null && source.getCTP().getPPr() != null) {
-            target.getCTP().setPPr(source.getCTP().getPPr());
-        }
-
-        // 复制文本和样式
-        for (XWPFRun run : source.getRuns()) {
-            XWPFRun newRun = target.createRun();
-            if (run.getCTR() != null && run.getCTR().getRPr() != null) {
-                newRun.getCTR().setRPr(run.getCTR().getRPr());
-            }
-            if (run.getText(0) != null) {
-                newRun.setText(run.getText(0));
+        } finally {
+            try {
+                mergedDoc.close();
+            } catch (IOException e) {
+                log.error("关闭 XWPFDocument 失败", e);
             }
         }
     }
 
-    private void copyTable(XWPFTable source, XWPFTable target) {
-        // 复制表格属性
-        if (source.getCTTbl().getTblPr() != null) {
-            target.getCTTbl().setTblPr((CTTblPr) source.getCTTbl().getTblPr().copy());
-        }
+    /**
+     * 合并 Word 文件（.docx 或 .doc）
+     */
+    private void mergeWordFile(XWPFDocument mergedDoc, File wordFile) throws Exception {
+        String fileName = wordFile.getName();
+        log.info("合并 Word 文件: {}", fileName);
 
-        // 复制行和单元格
-        for (int i = 0; i < source.getRows().size(); i++) {
-            XWPFTableRow sourceRow = source.getRow(i);
-            XWPFTableRow targetRow = i < target.getRows().size() ?
-                    target.getRow(i) : target.createRow();
-
-            // 复制行属性
-            if (sourceRow.getCtRow().getTrPr() != null) {
-                targetRow.getCtRow().setTrPr((CTTrPr) sourceRow.getCtRow().getTrPr().copy());
+        try (XWPFDocument doc = new XWPFDocument(new FileInputStream(wordFile))) {
+            // 复制段落
+            for (XWPFParagraph para : doc.getParagraphs()) {
+                XWPFParagraph newPara = mergedDoc.createParagraph();
+                newPara.getCTP().set(para.getCTP().copy());
             }
 
-            for (int j = 0; j < sourceRow.getTableCells().size(); j++) {
-                XWPFTableCell sourceCell = sourceRow.getCell(j);
-                XWPFTableCell targetCell = targetRow.getCell(j);
-                if (targetCell == null) {
-                    targetCell = targetRow.createCell();
-                }
-
-                // 复制单元格属性
-                if (sourceCell.getCTTc().getTcPr() != null) {
-                    targetCell.getCTTc().setTcPr((CTTcPr) sourceCell.getCTTc().getTcPr().copy());
-                }
-
-                // 复制单元格内容
-                for (XWPFParagraph para : sourceCell.getParagraphs()) {
-                    XWPFParagraph newPara = targetCell.addParagraph();
-                    copyParagraph(para, newPara);
-                }
+            // 复制表格
+            for (XWPFTable table : doc.getTables()) {
+                XWPFTable newTable = mergedDoc.createTable();
+                newTable.getCTTbl().set(table.getCTTbl().copy());
             }
         }
     }
 
+    /**
+     * 合并 TXT 文件（读取内容并写入 Word）
+     */
+    private void mergeTxtFile(XWPFDocument mergedDoc, File txtFile) throws Exception {
+        String fileName = txtFile.getName();
+        log.info("合并 TXT 文件: {}", fileName);
+
+        // 添加文件名作为标题
+        XWPFParagraph titlePara = mergedDoc.createParagraph();
+        XWPFRun titleRun = titlePara.createRun();
+        titleRun.setBold(true);
+        titleRun.setFontSize(14);
+
+        // 读取 TXT 文件内容
+        List<String> lines = Files.readAllLines(txtFile.toPath());
+        XWPFParagraph contentPara = mergedDoc.createParagraph();
+        XWPFRun contentRun = contentPara.createRun();
+
+        for (String line : lines) {
+            contentRun.setText(line);
+            contentRun.addBreak(); // 换行
+        }
+    }
+
+    /**
+     * 处理合并后的 Word 文档（上传到知识库）
+     */
     private void processMergedDocument(File mergedFile, String folderName) {
         try {
             // 知识库处理逻辑
-            if (currentKnowledgeId == null ||
-                    currentKnowledgeFileCount >= apiConfig.getKnowledgeBaseMaxFiles()) {
+            if (currentKnowledgeId == null || currentKnowledgeFileCount >= apiConfig.getKnowledgeBaseMaxFiles()) {
                 createNewKnowledgeBase();
             }
 
-            // 上传到知识库
+            // 上传合并后的 Word 文档
             deepVisionService.uploadFileCreateUnit(currentKnowledgeId, mergedFile.getAbsolutePath());
             currentKnowledgeFileCount++;
 
             // 备份文件
             String backupPath = apiConfig.getFileScan().getBackupDir() +
-                    "/" + folderName + "_merged.docx";
+                    "/" + folderName + "_" + mergedFile.getName();
             FileUtil.backupFile(mergedFile.getAbsolutePath(), backupPath);
 
             // 记录日志
@@ -298,17 +216,27 @@ public class FileScanService {
             record.setKnowledgeId(currentKnowledgeId);
             // saveToDatabase(record);
 
-            log.info("合并文档 {} 已上传到知识库 {}", mergedFile.getName(), currentKnowledgeId);
+            log.info("合并文件 {} 已上传到知识库 {}", mergedFile.getName(), currentKnowledgeId);
 
         } catch (Exception e) {
-            log.error("处理合并文档失败: {}", e.getMessage());
+            log.error("处理合并文件失败: {}", mergedFile.getName(), e);
             if (currentKnowledgeFileCount >= apiConfig.getKnowledgeBaseMaxFiles()) {
                 resetKnowledgeTracking();
             }
         }
     }
 
-    // 原有方法保持不变
+    private void logFileInfo(List<File> files) {
+        log.info("待处理文件列表 ({}个):", files.size());
+        for (File file : files) {
+            try {
+                log.info("- {} ({}字节)", file.getName(), file.length());
+            } catch (Exception e) {
+                log.error("读取文件信息失败: {}", file.getAbsolutePath(), e);
+            }
+        }
+    }
+
     private void createNewKnowledgeBase() {
         currentKnowledgeId = deepVisionService.createKnowledgeBase(
                 "知识库_" + System.currentTimeMillis(),
@@ -324,44 +252,23 @@ public class FileScanService {
     }
 
     private void cleanExpiredBackupFiles() {
-        // 保持原逻辑不变
-        int cleanDays = apiConfig.getFileScan().getCleanDays();
-        if (cleanDays <= 0) {
-            return;
-        }
-
         String backupDir = apiConfig.getFileScan().getBackupDir();
-        File dir = new File(backupDir);
+        int cleanDays = apiConfig.getFileScan().getCleanDays();
 
-        if (!dir.exists() || !dir.isDirectory()) {
-            return;
-        }
-
-        File[] monthDirs = dir.listFiles(File::isDirectory);
-        if (monthDirs == null || monthDirs.length == 0) {
-            return;
-        }
-
-        for (File monthDir : monthDirs) {
-            File[] files = monthDir.listFiles();
-            if (files == null || files.length == 0) {
-                continue;
-            }
-
-            for (File file : files) {
-                if (file.isFile()) {
-                    long fileAge = System.currentTimeMillis() - file.lastModified();
-                    long daysOld = fileAge / (24 * 60 * 60 * 1000);
-
-                    if (daysOld >= cleanDays) {
-                        if (file.delete()) {
-                            log.info("已删除过期备份文件: {}", file.getAbsolutePath());
-                        } else {
-                            log.error("删除过期备份文件失败: {}", file.getAbsolutePath());
-                        }
+        try {
+            Files.walkFileTree(Paths.get(backupDir), new SimpleFileVisitor<Path>() {
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                    if (attrs.isRegularFile() &&
+                            attrs.lastModifiedTime().toMillis() < System.currentTimeMillis() - cleanDays * 86400_000L) {
+                        Files.delete(file);
+                        log.info("删除过期备份文件: {}", file);
                     }
+                    return FileVisitResult.CONTINUE;
                 }
-            }
+            });
+        } catch (IOException e) {
+            log.error("清理过期备份文件失败", e);
         }
     }
 }

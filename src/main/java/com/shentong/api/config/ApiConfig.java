@@ -24,6 +24,7 @@ public class ApiConfig {
         private String outputDir;
         private String cron;
         private int cleanDays;
+        private String supportedExtensions = "docx,doc,txt"; // 支持的文件扩展名（可配置）
     }
 
     @Data

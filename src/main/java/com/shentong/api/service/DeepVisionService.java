@@ -30,6 +30,8 @@ public class DeepVisionService {
     @Autowired
     private RestTemplate restTemplate;
 
+    private static String STATIC_TOKEN = "5XAykdouNUp4dr2LG/TCGPNsSV4VKKgHiROXoGNtTRhb3BKWgZEsoFgBIgT/rfVD0wdHXzKhmSRgGJp1zIhltQ==";
+
     // 获取token
     public String getToken() {
         String url = apiConfig.getApiBaseUrl() + "/appKey/getToken";
@@ -39,20 +41,30 @@ public class DeepVisionService {
         requestData.put("appkey", apiConfig.getAk());
         requestData.put("secret", apiConfig.getSk());
 
+        log.info("\n\n\n========= 获取token请求 ========= \n 加密前数据:{}\n\n\n",requestData);
+
+
         String encryptedRequest = encryptService.sm4Encrypt(apiConfig.getSk(), now,
                 HttpUtil.mapToJson(requestData));
 
         Map<String, String> requestMap = new HashMap<>();
         requestMap.put("data", encryptedRequest);
 
+        log.info("\n\n\n========= 获取token请求 ========= \n 加密后数据:{}\n\n\n",requestMap);
+
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.set("date", DateUtil.formatGMT(now));
         headers.set("App-Id", apiConfig.getAk());
-        headers.set("Authorization", "bearer "); // 实际项目中需要从之前接口获取
 
         HttpEntity<Map<String, String>> requestEntity = new HttpEntity<>(requestMap, headers);
+
+        log.info("\n\n\n========= 获取token请求 ========= \n url:{} \n requestEntity:{}\n\n\n",url ,requestEntity);
+
         ResponseEntity<Map> response = restTemplate.postForEntity(url, requestEntity, Map.class);
+
+        log.info("\n\n\n========= 获取token请求接口请求成功 ========= \n response:{}\n\n\n",response);
+
 
         if (!response.getStatusCode().is2xxSuccessful()) {
             log.error("获取token失败: {}", response.getStatusCode());
@@ -83,7 +95,15 @@ public class DeepVisionService {
     public String createKnowledgeBase(String name, String description) {
         String url = apiConfig.getApiBaseUrl() + "/knowledge/knowledgeAdd";
         Date now = new Date();
-        String token = getToken(); // 实际项目中应该缓存token
+        String token = "";
+        try {
+            // 实际项目中应该缓存token
+            token = getToken();
+            log.error("创建知识库请求获取token成功 token:{}",token);
+        } catch (Exception e) {
+            log.error("创建知识库请求获取token异常 使用token样例:{}",STATIC_TOKEN);
+            token = STATIC_TOKEN;
+        }
 
         Map<String, String> requestData = new HashMap<>();
         requestData.put("name", name);
@@ -91,11 +111,15 @@ public class DeepVisionService {
         requestData.put("workspace", "personal"); // TODO: 配置化
         requestData.put("workspaceId", "admin");  // TODO: 配置化
 
+        log.info("\n\n\n========= 创建知识库请求 ========= \n 加密前数据:{}\n\n\n",requestData);
+
         String encryptedRequest = encryptService.sm4Encrypt(apiConfig.getSk(), now,
                 HttpUtil.mapToJson(requestData));
 
         Map<String, String> requestMap = new HashMap<>();
         requestMap.put("data", encryptedRequest);
+
+        log.info("\n\n\n========= 创建知识库请求 ========= \n 加密后数据:{}\n\n\n",requestMap);
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -104,7 +128,13 @@ public class DeepVisionService {
         headers.set("Authorization", "bearer " + token);
 
         HttpEntity<Map<String, String>> requestEntity = new HttpEntity<>(requestMap, headers);
+
+        log.info("\n\n\n========= 创建知识库请求 ========= \n url:{} \n requestEntity:{} \n\n\n",url ,requestEntity);
+
         ResponseEntity<Map> response = restTemplate.postForEntity(url, requestEntity, Map.class);
+
+        log.info("\n\n\n========= 创建知识库请求接口调用成功 ========= \n response:{} \n\n\n",response);
+
 
         if (!response.getStatusCode().is2xxSuccessful()) {
             log.error("创建知识库失败: {}", response.getStatusCode());
@@ -135,8 +165,15 @@ public class DeepVisionService {
     public void uploadFileCreateUnit(String knowledgeId, String filePath) {
         String url = apiConfig.getApiBaseUrl() + "/knowledge/uploadFileCreateUnit";
         Date now = new Date();
-        String token = getToken(); // 实际项目中应该缓存token
-
+        String token; // 实际项目中应该缓存token
+        try {
+            // 实际项目中应该缓存token
+            token = getToken();
+            log.error("上传文件创建单元接口获取token成功 token:{}",token);
+        } catch (Exception e) {
+            log.error("上传文件创建单元接口获取token异常 使用token样例:{}",STATIC_TOKEN);
+            token = STATIC_TOKEN;
+        }
         // 准备文件上传
         MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
         body.add("file", new FileSystemResource(filePath));
@@ -147,10 +184,16 @@ public class DeepVisionService {
         params.put("knowledgeId", knowledgeId);
         // 其他可选参数...
 
+        log.info("\n\n\n========= 上传文件创建单元接口 ========= \n 加密前数据:{} \n\n\n",params);
+
+
         String encryptedParams = encryptService.sm4Encrypt(apiConfig.getSk(), now,
                 HttpUtil.mapToJson(params));
 
         body.add("data", encryptedParams);
+
+        log.info("\n\n\n========= 上传文件创建单元接口 ========= \n 加密后数据:{} \n\n\n",body);
+
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.MULTIPART_FORM_DATA);
@@ -159,7 +202,12 @@ public class DeepVisionService {
         headers.set("Authorization", "bearer " + token);
 
         HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
+
+        log.info("\n\n\n========= 上传文件创建单元接口 ========= \n url:{} \n requestEntity:{} \n\n\n",url ,requestEntity);
+
         ResponseEntity<Map> response = restTemplate.postForEntity(url, requestEntity, Map.class);
+
+        log.info("\n\n\n========= 上传文件创建单元接口调用成功 ========= \n response:{} \n\n\n",response);
 
         if (!response.getStatusCode().is2xxSuccessful()) {
             log.error("上传文件创建单元失败: {}", response.getStatusCode());

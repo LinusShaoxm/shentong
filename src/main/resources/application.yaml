@@ -14,5 +14,7 @@ deepvision:
     output-dir: D:\\merge\\shentong\\ # 合并文件输出路径
     cron: 0/10 * * * * ?         # 每30s执行一次
     clean-days: 7               # 备份文件保留天数
+    supported-extensions: "docx,doc,txt" # 支持的文件扩展名（可配置）
+
   log:
     dir: D:\\logs\\shentong\\   # 日志目录
