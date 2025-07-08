@@ -105,8 +105,8 @@ public class DeepVisionService {
         Map<String, String> requestData = new HashMap<>();
         requestData.put("name", name);
         requestData.put("description", description);
-        requestData.put("workspace", "personal"); // TODO: 配置化
-        requestData.put("workspaceId", "admin");  // TODO: 配置化
+        requestData.put("workspace", apiConfig.getWorkspace());
+        requestData.put("workspaceId", apiConfig.getWorkspaceId());
 
         log.info("\n\n\n========= 创建知识库请求 ========= \n 加密前数据:{}\n\n\n", requestData);
 
@@ -170,7 +170,7 @@ public class DeepVisionService {
         body.add("file", new FileSystemResource(filePath));
 
         Map<String, String> params = new HashMap<>();
-        params.put("userId", "admin"); // TODO: 配置化
+        params.put("userId", apiConfig.getUserId()); // TODO: 配置化
         params.put("tenantId", apiConfig.getTenantId());
         params.put("knowledgeId", knowledgeId);
         // 其他可选参数...

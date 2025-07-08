@@ -4,8 +4,10 @@ import com.shentong.api.config.ApiConfig;
 import com.shentong.api.model.FileUploadRecord;
 import com.shentong.api.service.DeepVisionService;
 import com.shentong.api.util.FileUtil;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
 import org.apache.poi.xwpf.usermodel.*;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -32,6 +34,7 @@ public class FileScanService {
         log.info("===== 开始文件扫描处理 =====");
 
         String scanDir = apiConfig.getFileScan().getDir();
+        log.info("apiConfig: {}", apiConfig);
         File rootDir = new File(scanDir);
 
         if (!rootDir.exists()) {

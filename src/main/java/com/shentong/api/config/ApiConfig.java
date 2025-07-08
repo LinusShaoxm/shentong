@@ -11,6 +11,9 @@ public class ApiConfig {
     private String tenantId;
     private String ak;
     private String sk;
+    private String userId;
+    private String workspace;
+    private String workspaceId;
     private String apiBaseUrl;
     private FileScanConfig fileScan;
     private LogConfig log;
