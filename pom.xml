@@ -11,7 +11,7 @@
 
     <groupId>com.shentong</groupId>
     <artifactId>shentong-api</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>1.0</version>
     <name>shentong-api</name>
     <description>深瞳API接口调用示例</description>
 
@@ -22,6 +22,19 @@
     </properties>
 
     <dependencies>
+
+        <!-- SLF4J API -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>1.7.30</version> <!-- 使用最新或合适的版本 -->
+        </dependency>
+        <!-- SLF4J 与具体日志框架的绑定，例如使用Logback -->
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <version>1.2.3</version> <!-- 使用最新或合适的版本 -->
+        </dependency>
 
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -119,6 +132,15 @@
                             <artifactId>lombok</artifactId>
                         </exclude>
                     </excludes>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.2.0</version> <!-- 使用适合你项目的版本 -->
+                <configuration>
+                    <finalName>shentong-api</finalName> <!-- 指定最终的jar名，不包括版本号 -->
                 </configuration>
             </plugin>
 
