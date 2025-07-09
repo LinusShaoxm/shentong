@@ -1,5 +1,6 @@
 package com.shentong.api.service;
 
+import com.shentong.api.cache.FolderScanCache;
 import com.shentong.api.config.ApiConfig;
 import com.shentong.api.model.FileUploadRecord;
 import com.shentong.api.service.DeepVisionService;
@@ -9,12 +10,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import org.apache.poi.xwpf.usermodel.*;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.io.*;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -29,8 +32,11 @@ public class FileScanService {
     private String currentKnowledgeId;
     private int currentKnowledgeFileCount = 0;
 
+    @Autowired
+    private FolderScanCache folderScanCache;
+
     @Scheduled(cron = "${deepvision.file-scan.cron}")
-    public void scanFiles() {
+    public void scanFiles() throws IOException, NoSuchAlgorithmException {
         log.info("===== 开始文件扫描处理 =====");
 
         String scanDir = apiConfig.getFileScan().getDir();
@@ -51,7 +57,7 @@ public class FileScanService {
         log.info("===== 处理完成 =====");
     }
 
-    private void processFiles(File rootDir) {
+    private void processFiles(File rootDir) throws IOException, NoSuchAlgorithmException {
         // 获取所有子文件夹
         File[] subDirs = rootDir.listFiles(File::isDirectory);
         if (subDirs == null || subDirs.length == 0) {
@@ -65,6 +71,11 @@ public class FileScanService {
 
         for (File subDir : subDirs) {
             log.info("\n处理目录: {}", subDir.getName());
+
+            if (folderScanCache.isFolderScanned(subDir.getPath())) {
+                System.out.println("文件夹已扫描过，跳过: " + subDir.getPath());
+                continue;
+            }
 
             // 获取当前文件夹下所有支持的文件
             List<File> files = new ArrayList<>();
@@ -90,9 +101,8 @@ public class FileScanService {
 
             // 合并所有文件（docx, doc, txt）到一个 Word 文档
             File mergedFile = mergeAllFilesToWord(files, subDir.getName());
-            if (mergedFile != null) {
-                processMergedDocument(mergedFile, subDir.getName());
-            }
+            processMergedDocument(mergedFile, subDir.getName());
+            folderScanCache.markFolderAsScanned(subDir.getPath());
         }
     }
 
@@ -135,7 +145,7 @@ public class FileScanService {
             return new File(mergedFileName);
         } catch (Exception e) {
             log.error("合并文件失败: {}", e.getMessage(), e);
-            return null;
+            throw new RuntimeException(e);
         } finally {
             try {
                 mergedDoc.close();
@@ -227,6 +237,7 @@ public class FileScanService {
             if (currentKnowledgeFileCount >= apiConfig.getKnowledgeBaseMaxFiles()) {
                 resetKnowledgeTracking();
             }
+            throw new RuntimeException(e);
         }
     }
 
