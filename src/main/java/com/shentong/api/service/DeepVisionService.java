@@ -59,11 +59,11 @@ public class DeepVisionService {
 
         HttpEntity<Map<String, String>> requestEntity = new HttpEntity<>(requestMap, headers);
 
-        log.info("\n\n\n========= 获取token请求 =========  \n 加密前数据:{}\n 加密后数据:{} \n url:{} \n requestEntity:{}\n\n\n", requestData, requestMap, url, requestEntity);
+        log.info("\n\n\n========= 获取token请求 =========  \n 加密前数据:{}\n 加密后数据:{} \n url:{} \n requestEntity:{}\n\n\n", JSONObject.toJSONString(requestData), JSONObject.toJSONString(requestMap), url, JSONObject.toJSONString(requestEntity));
 
         ResponseEntity<Map> response = restTemplate.postForEntity(url, requestEntity, Map.class);
 
-        log.info("\n\n\n========= 获取token请求接口请求成功 ========= \n response:{}\n\n\n", response);
+        log.info("\n\n\n========= 获取token请求接口请求成功 ========= \n response:{}\n\n\n", JSONObject.toJSONString(response));
 
 
         if (!response.getStatusCode().is2xxSuccessful()) {
@@ -73,7 +73,7 @@ public class DeepVisionService {
 
         Map<String, Object> responseBody = response.getBody();
 
-        log.info("获取token接口返回Body:{}", responseBody);
+        log.info("获取token接口返回Body:{}", JSONObject.toJSONString(responseBody));
 
         if (responseBody == null || !"bizSuccess".equals(responseBody.get("code"))) {
             log.error("获取token失败: {}", responseBody);
@@ -123,7 +123,7 @@ public class DeepVisionService {
 
         ResponseEntity<Map> response = restTemplate.postForEntity(url, requestEntity, Map.class);
 
-        log.info("\n\n\n========= 创建知识库请求接口调用成功 ========= \n response:{} \n\n\n", response);
+        log.info("\n\n\n========= 创建知识库请求接口调用成功 ========= \n response:{} \n\n\n", JSONObject.toJSONString(response));
 
 
         if (!response.getStatusCode().is2xxSuccessful()) {
@@ -132,7 +132,7 @@ public class DeepVisionService {
         }
 
         Map<String, Object> responseBody = response.getBody();
-        log.info("创建知识库接口返回Body:{}", responseBody);
+        log.info("创建知识库接口返回Body:{}", JSONObject.toJSONString(responseBody));
         if (responseBody == null || !"bizSuccess".equals(responseBody.get("code"))) {
             log.error("创建知识库失败: {}", responseBody);
             throw new RuntimeException("创建知识库失败: " + responseBody);
@@ -164,7 +164,7 @@ public class DeepVisionService {
         body.add("file", new FileSystemResource(filePath));
 
         Map<String, String> params = new HashMap<>();
-        params.put("userId", apiConfig.getUserId()); // TODO: 配置化
+        params.put("userId", apiConfig.getUserId());
         params.put("tenantId", apiConfig.getTenantId());
         params.put("knowledgeId", knowledgeId);
         // 其他可选参数...
@@ -187,7 +187,7 @@ public class DeepVisionService {
 
         ResponseEntity<Map> response = restTemplate.postForEntity(url, requestEntity, Map.class);
 
-        log.info("\n\n\n========= 上传文件创建单元接口调用成功 ========= \n response:{} \n\n\n", response);
+        log.info("\n\n\n========= 上传文件创建单元接口调用成功 ========= \n response:{} \n\n\n", JSONObject.toJSONString(response));
 
         if (!response.getStatusCode().is2xxSuccessful()) {
             log.error("上传文件创建单元失败: {}", response.getStatusCode());
@@ -195,7 +195,7 @@ public class DeepVisionService {
         }
 
         Map<String, Object> responseBody = response.getBody();
-        log.info("上传文件创建单元接口返回Body:{}", responseBody);
+        log.info("上传文件创建单元接口返回Body:{}", JSONObject.toJSONString(responseBody));
         if (responseBody == null || !"bizSuccess".equals(responseBody.get("code"))) {
             log.error("上传文件创建单元失败: {}", responseBody);
             throw new RuntimeException("上传文件创建单元失败: " + responseBody);
