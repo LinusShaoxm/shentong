@@ -102,7 +102,7 @@ public class FileScanService {
     private File mergeAllFilesToWord(List<File> files, String folderName) {
         XWPFDocument mergedDoc = new XWPFDocument();
         String outputDir = apiConfig.getFileScan().getOutputDir();
-        String mergedFileName = outputDir + "/" + folderName + "_merged.docx";
+        String mergedFileName = outputDir + "/" + folderName + "_合并.docx";
 
         try {
             for (File file : files) {
@@ -198,7 +198,8 @@ public class FileScanService {
         try {
             // 知识库处理逻辑
             if (currentKnowledgeId == null || currentKnowledgeFileCount >= apiConfig.getKnowledgeBaseMaxFiles()) {
-                createNewKnowledgeBase();
+//                createNewKnowledgeBase();
+                currentKnowledgeId = "1";
             }
 
             // 上传合并后的 Word 文档

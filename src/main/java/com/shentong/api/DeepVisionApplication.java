@@ -1,4 +1,3 @@
-// src/main/java/com/example/deepvision/DeepVisionApplication.java
 package com.shentong.api;
 
 import lombok.extern.slf4j.Slf4j;

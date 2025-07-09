@@ -3,20 +3,29 @@ package com.shentong.api.service;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.shentong.api.config.ApiConfig;
-import com.shentong.api.model.ApiResponse;
 import com.shentong.api.util.DateUtil;
 import com.shentong.api.util.HttpUtil;
 
 import lombok.extern.slf4j.Slf4j;
 
+import org.apache.commons.io.FileUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.http.*;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -147,7 +156,7 @@ public class DeepVisionService {
     }
 
     // 上传文件创建单元
-    public void uploadFileCreateUnit(String knowledgeId, String filePath) {
+    public void uploadFileCreateUnit(String knowledgeId, String filePath) throws IOException {
         String url = apiConfig.getApiBaseUrl() + "/knowledge/uploadFileCreateUnit";
         Date now = new Date();
         String token; // 实际项目中应该缓存token
@@ -159,10 +168,20 @@ public class DeepVisionService {
             log.error("上传文件创建单元接口获取token异常 使用token样例:{}", STATIC_TOKEN);
             token = STATIC_TOKEN;
         }
-        // 准备文件上传
-        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
-        body.add("file", new FileSystemResource(filePath));
 
+        Path path = Paths.get(filePath);
+        byte[] fileContent = Files.readAllBytes(path);
+
+        ByteArrayResource resource = new ByteArrayResource(fileContent) {
+            @Override
+            public String getFilename() {
+                return path.getFileName().toString();
+            }
+        };
+
+        //构建 multipart/form-data 请求体
+        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+        body.add("file", resource);
         Map<String, String> params = new HashMap<>();
         params.put("userId", apiConfig.getUserId());
         params.put("tenantId", apiConfig.getTenantId());
@@ -181,11 +200,9 @@ public class DeepVisionService {
         headers.set("App-Id", apiConfig.getAk());
         headers.set("Authorization", "bearer " + token);
 
-        HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
-
-        log.info("\n\n\n========= 上传文件创建单元接口 ========= 加密前数据:{} \n 加密后数据:{} \n url:{} \n requestEntity:{} \n\n\n", JSONObject.toJSONString(params), JSONObject.toJSONString(body), url, JSONObject.toJSONString(requestEntity));
-
-        ResponseEntity<Map> response = restTemplate.postForEntity(url, requestEntity, Map.class);
+        log.info("\n\n\n========= 上传文件创建单元接口 ========= 加密前数据:{} \n url:{} \n\n\n", JSONObject.toJSONString(params), url);
+        HttpEntity<MultiValueMap<String, Object>> multiValueMapHttpEntity = new HttpEntity<>(body, headers);
+        ResponseEntity<Map> response = restTemplate.postForEntity(url, multiValueMapHttpEntity , Map.class);
 
         log.info("\n\n\n========= 上传文件创建单元接口调用成功 ========= \n response:{} \n\n\n", JSONObject.toJSONString(response));
 
