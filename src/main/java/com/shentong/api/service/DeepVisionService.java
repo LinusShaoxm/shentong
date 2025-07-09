@@ -45,16 +45,12 @@ public class DeepVisionService {
         requestData.put("appkey", apiConfig.getAk());
         requestData.put("secret", apiConfig.getSk());
 
-        log.info("\n\n\n========= 获取token请求 ========= \n 加密前数据:{}\n\n\n", requestData);
-
 
         String encryptedRequest = encryptService.sm4Encrypt(apiConfig.getSk(), now,
                 HttpUtil.mapToJson(requestData));
 
         Map<String, String> requestMap = new HashMap<>();
         requestMap.put("data", encryptedRequest);
-
-        log.info("\n\n\n========= 获取token请求 ========= \n 加密后数据:{}\n\n\n", requestMap);
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -63,7 +59,7 @@ public class DeepVisionService {
 
         HttpEntity<Map<String, String>> requestEntity = new HttpEntity<>(requestMap, headers);
 
-        log.info("\n\n\n========= 获取token请求 ========= \n url:{} \n requestEntity:{}\n\n\n", url, requestEntity);
+        log.info("\n\n\n========= 获取token请求 =========  \n 加密前数据:{}\n 加密后数据:{} \n url:{} \n requestEntity:{}\n\n\n", requestData, requestMap, url, requestEntity);
 
         ResponseEntity<Map> response = restTemplate.postForEntity(url, requestEntity, Map.class);
 
@@ -108,15 +104,12 @@ public class DeepVisionService {
         requestData.put("workspace", apiConfig.getWorkspace());
         requestData.put("workspaceId", apiConfig.getWorkspaceId());
 
-        log.info("\n\n\n========= 创建知识库请求 ========= \n 加密前数据:{}\n\n\n", requestData);
-
         String encryptedRequest = encryptService.sm4Encrypt(apiConfig.getSk(), now,
                 HttpUtil.mapToJson(requestData));
 
         Map<String, String> requestMap = new HashMap<>();
         requestMap.put("data", encryptedRequest);
 
-        log.info("\n\n\n========= 创建知识库请求 ========= \n 加密后数据:{}\n\n\n", requestMap);
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -126,7 +119,7 @@ public class DeepVisionService {
 
         HttpEntity<Map<String, String>> requestEntity = new HttpEntity<>(requestMap, headers);
 
-        log.info("\n\n\n========= 创建知识库请求 ========= \n url:{} \n requestEntity:{} \n\n\n", url, requestEntity);
+        log.info("\n\n\n========= 创建知识库请求 ========= 加密前数据:{} \n 加密后数据:{} \n url:{} \n requestEntity:{} \n\n\n", requestData, requestMap, url, requestEntity);
 
         ResponseEntity<Map> response = restTemplate.postForEntity(url, requestEntity, Map.class);
 
@@ -147,8 +140,9 @@ public class DeepVisionService {
 
         String encryptedResponse = (String) responseBody.get("data");
         String decryptedResponse = encryptService.sm4Decrypt(apiConfig.getSk(), now, encryptedResponse);
-
+        log.info("======= 创建知识库解密结果:{}", decryptedResponse);
         JSONObject decryptedJson = JSON.parseObject(decryptedResponse);
+        log.info("======= 创建知识库解密结果转JSON:{}", decryptedJson);
         return decryptedJson.getString("id");
     }
 
@@ -175,15 +169,10 @@ public class DeepVisionService {
         params.put("knowledgeId", knowledgeId);
         // 其他可选参数...
 
-        log.info("\n\n\n========= 上传文件创建单元接口 ========= \n 加密前数据:{} \n\n\n", params);
-
-
         String encryptedParams = encryptService.sm4Encrypt(apiConfig.getSk(), now,
                 HttpUtil.mapToJson(params));
 
         body.add("data", encryptedParams);
-
-        log.info("\n\n\n========= 上传文件创建单元接口 ========= \n 加密后数据:{} \n\n\n", body);
 
 
         HttpHeaders headers = new HttpHeaders();
@@ -194,7 +183,7 @@ public class DeepVisionService {
 
         HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
 
-        log.info("\n\n\n========= 上传文件创建单元接口 ========= \n url:{} \n requestEntity:{} \n\n\n", url, requestEntity);
+        log.info("\n\n\n========= 上传文件创建单元接口 ========= 加密前数据:{} \n 加密后数据:{} \n url:{} \n requestEntity:{} \n\n\n", params, body, url, requestEntity);
 
         ResponseEntity<Map> response = restTemplate.postForEntity(url, requestEntity, Map.class);
 
