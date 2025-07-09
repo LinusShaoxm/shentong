@@ -3,6 +3,8 @@ server:
 
 deepvision:
   tenant-id: zyxx
+  api-key: api_key_test
+  secret: multibot@@zhiwei
   ak: 7a04e90ad5e14b53
   sk: b53a4eb44e2c42d98b0fbda93086337d
   user-id: dwwenjie_1

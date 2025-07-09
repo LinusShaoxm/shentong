@@ -42,8 +42,8 @@ public class DeepVisionService {
         Date now = new Date();
 
         Map<String, String> requestData = new HashMap<>();
-        requestData.put("appkey", apiConfig.getAk());
-        requestData.put("secret", apiConfig.getSk());
+        requestData.put("appkey", apiConfig.getApiKey());
+        requestData.put("secret", apiConfig.getSecret());
 
 
         String encryptedRequest = encryptService.sm4Encrypt(apiConfig.getSk(), now,
@@ -119,7 +119,7 @@ public class DeepVisionService {
 
         HttpEntity<Map<String, String>> requestEntity = new HttpEntity<>(requestMap, headers);
 
-        log.info("\n\n\n========= 创建知识库请求 ========= 加密前数据:{} \n 加密后数据:{} \n url:{} \n requestEntity:{} \n\n\n", requestData, requestMap, url, requestEntity);
+        log.info("\n\n\n========= 创建知识库请求 ========= 加密前数据:{} \n 加密后数据:{} \n url:{} \n requestEntity:{} \n\n\n", JSONObject.toJSONString(requestData), JSONObject.toJSONString(requestMap), url, JSONObject.toJSONString(requestEntity));
 
         ResponseEntity<Map> response = restTemplate.postForEntity(url, requestEntity, Map.class);
 
@@ -183,7 +183,7 @@ public class DeepVisionService {
 
         HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
 
-        log.info("\n\n\n========= 上传文件创建单元接口 ========= 加密前数据:{} \n 加密后数据:{} \n url:{} \n requestEntity:{} \n\n\n", params, body, url, requestEntity);
+        log.info("\n\n\n========= 上传文件创建单元接口 ========= 加密前数据:{} \n 加密后数据:{} \n url:{} \n requestEntity:{} \n\n\n", JSONObject.toJSONString(params), JSONObject.toJSONString(body), url, JSONObject.toJSONString(requestEntity));
 
         ResponseEntity<Map> response = restTemplate.postForEntity(url, requestEntity, Map.class);
 
