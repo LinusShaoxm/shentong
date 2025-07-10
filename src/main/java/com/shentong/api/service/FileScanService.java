@@ -209,8 +209,8 @@ public class FileScanService {
         try {
             // 知识库处理逻辑
             if (currentKnowledgeId == null || currentKnowledgeFileCount >= apiConfig.getKnowledgeBaseMaxFiles()) {
-//                createNewKnowledgeBase();
-                currentKnowledgeId = "1";
+                createNewKnowledgeBase();
+                //currentKnowledgeId = "1";
             }
 
             // 上传合并后的 Word 文档
