@@ -263,7 +263,17 @@ public class FileScanService {
     }
 
     private void createNewKnowledgeBase(String folderName) {
-        String month = folderName.substring(folderName.length() - 1);
+        String month = "";
+        try {
+            month = folderName.substring(folderName.length() - 2);
+            if (month.startsWith("0")) {
+                month = month.replace("0", "");
+            }
+        } catch (Exception e) {
+            log.error("根据文件夹生成知识库月份异常:", e);
+            Calendar calendar = Calendar.getInstance();
+            month = String.valueOf(calendar.get(Calendar.MONTH) + 1);
+        }
         try {
             currentKnowledgeId = deepVisionService.createKnowledgeBase(
                     month + "月份整体分析报告",
