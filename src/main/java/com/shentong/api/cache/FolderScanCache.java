@@ -33,10 +33,13 @@ public class FolderScanCache {
      */
     public boolean isFolderScanned(String folderPath) {
         try {
-            String cacheFileName = generateCacheFileName(folderPath);
-            cacheFileName = folderPath.replaceAll("[\\\\/:]", "") + "__"  + cacheFileName;
-            Path cacheFilePath = Paths.get(config.getFileScan().getCacheDir(), cacheFileName);
-            return Files.exists(cacheFilePath);
+            if (config.getFileScan().isCacheOn()) {
+                String cacheFileName = generateCacheFileName(folderPath);
+                cacheFileName = folderPath.replaceAll("[\\\\/:]", "") + "__"  + cacheFileName;
+                Path cacheFilePath = Paths.get(config.getFileScan().getCacheDir(), cacheFileName);
+                return Files.exists(cacheFilePath);
+            }
+            return false;
         } catch (Exception e) {
             // 出错时返回false，确保文件夹会被处理
             return false;
@@ -47,6 +50,9 @@ public class FolderScanCache {
      * 标记文件夹为已扫描
      */
     public void markFolderAsScanned(String folderPath) throws IOException, NoSuchAlgorithmException {
+        if (!config.getFileScan().isCacheOn()) {
+            return;
+        }
         log.info("folderPath已被扫描过,缓存标记");
         String cacheFileName = generateCacheFileName(folderPath);
         cacheFileName = folderPath.replaceAll("[\\\\/:]", "") + "__" + cacheFileName;
