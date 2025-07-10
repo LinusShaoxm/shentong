@@ -218,7 +218,10 @@ public class FileScanService {
                 createNewKnowledgeBase(folderName);
                 //currentKnowledgeId = "1";
             }
-
+            if (Objects.isNull(currentKnowledgeId)) {
+                log.error("知识库Id为空");
+                return;
+            }
             // 上传合并后的 Word 文档
             deepVisionService.uploadFileCreateUnit(currentKnowledgeId, mergedFile.getAbsolutePath());
             currentKnowledgeFileCount++;
@@ -261,10 +264,14 @@ public class FileScanService {
 
     private void createNewKnowledgeBase(String folderName) {
         String month = folderName.substring(folderName.length() - 1);
-        currentKnowledgeId = deepVisionService.createKnowledgeBase(
-                month + "月份整体分析报告",
-                month + "月份整体分析报告"
-        );
+        try {
+            currentKnowledgeId = deepVisionService.createKnowledgeBase(
+                    month + "月份整体分析报告",
+                    month + "月份整体分析报告");
+        } catch (Exception e) {
+            log.error("知识库创建失败:", e);
+            currentKnowledgeId = null;
+        }
         currentKnowledgeFileCount = 0;
         log.info("创建新知识库: {}", currentKnowledgeId);
     }
