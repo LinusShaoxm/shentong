@@ -110,9 +110,14 @@ public class FileScanService {
     /**
      * 合并所有文件（docx, doc, txt）到一个 Word 文档
      */
-    private File mergeAllFilesToWord(List<File> files, String folderName) {
+    private File mergeAllFilesToWord(List<File> files, String folderName) throws IOException {
         XWPFDocument mergedDoc = new XWPFDocument();
         String outputDir = apiConfig.getFileScan().getOutputDir();
+        // 不存在先创建
+        Path cachePath = Paths.get(outputDir);
+        if (!Files.exists(cachePath)) {
+            Files.createDirectories(cachePath);
+        }
         String mergedFileName = outputDir + "/" + folderName + "_合并.docx";
 
         try {
@@ -269,8 +274,13 @@ public class FileScanService {
         currentKnowledgeFileCount = 0;
     }
 
-    private void cleanExpiredBackupFiles() {
+    private void cleanExpiredBackupFiles() throws IOException {
         String backupDir = apiConfig.getFileScan().getBackupDir();
+        // 不存在先创建
+        Path backupPath = Paths.get(backupDir);
+        if (!Files.exists(backupPath)) {
+            Files.createDirectories(backupPath);
+        }
         int cleanDays = apiConfig.getFileScan().getCleanDays();
 
         try {

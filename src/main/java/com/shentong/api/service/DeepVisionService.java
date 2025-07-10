@@ -119,14 +119,6 @@ public class DeepVisionService {
         requestData.put("appKey", apiConfig.getApiKey());
         requestData.put("secret", apiConfig.getSecret());
 
-
-        //tenantId：zyxx
-        //secret：multibot@@zhiwei
-        //userId：chenjiahao@xz
-        //appKey：8K1FV-NZLFA-91OP5-4NBJ7-0116
-        //ak = 7a04e90ad5e14b53
-        //sk = b53a4eb44e2c42d98b0fbda93086337d
-
         String encryptedRequest = encryptService.sm4Encrypt(apiConfig.getSk(), now,
                 HttpUtil.mapToJson(requestData));
 
