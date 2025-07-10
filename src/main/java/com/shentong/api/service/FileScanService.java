@@ -77,7 +77,8 @@ public class FileScanService {
                 System.out.println("文件夹已扫描过，跳过: " + subDir.getPath());
                 continue;
             }
-
+            // 一个文件夹对应一个知识库
+            resetKnowledgeTracking();
             // 获取当前文件夹下所有支持的文件
             List<File> files = new ArrayList<>();
             try {
@@ -214,7 +215,7 @@ public class FileScanService {
         try {
             // 知识库处理逻辑
             if (currentKnowledgeId == null || currentKnowledgeFileCount >= apiConfig.getKnowledgeBaseMaxFiles()) {
-                createNewKnowledgeBase();
+                createNewKnowledgeBase(folderName);
                 //currentKnowledgeId = "1";
             }
 
@@ -258,9 +259,8 @@ public class FileScanService {
         }
     }
 
-    private void createNewKnowledgeBase() {
-        Calendar calendar = Calendar.getInstance();
-        int month = calendar.get(Calendar.MONTH) + 1;
+    private void createNewKnowledgeBase(String folderName) {
+        String month = folderName.substring(folderName.length() - 1);
         currentKnowledgeId = deepVisionService.createKnowledgeBase(
                 month + "月份整体分析报告",
                 month + "月份整体分析报告"
