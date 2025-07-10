@@ -269,6 +269,7 @@ public class FileScanService {
             if (month.startsWith("0")) {
                 month = month.replace("0", "");
             }
+            log.info("根据文件夹生成知识库月份:{}", month);
         } catch (Exception e) {
             log.error("根据文件夹生成知识库月份异常:", e);
             Calendar calendar = Calendar.getInstance();
