@@ -112,6 +112,20 @@ public class DeepVisionService {
         requestData.put("description", description);
         requestData.put("workspace", apiConfig.getWorkspace());
         requestData.put("workspaceId", apiConfig.getWorkspaceId());
+        requestData.put("userId", apiConfig.getUserId());
+        requestData.put("tenantId", apiConfig.getTenantId());
+        requestData.put("ak", apiConfig.getAk());
+        requestData.put("sk", apiConfig.getSk());
+        requestData.put("appKey", apiConfig.getApiKey());
+        requestData.put("secret", apiConfig.getSecret());
+
+
+        //tenantId：zyxx
+        //secret：multibot@@zhiwei
+        //userId：chenjiahao@xz
+        //appKey：8K1FV-NZLFA-91OP5-4NBJ7-0116
+        //ak = 7a04e90ad5e14b53
+        //sk = b53a4eb44e2c42d98b0fbda93086337d
 
         String encryptedRequest = encryptService.sm4Encrypt(apiConfig.getSk(), now,
                 HttpUtil.mapToJson(requestData));
@@ -181,12 +195,16 @@ public class DeepVisionService {
 
         //构建 multipart/form-data 请求体
         MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+
         body.add("file", resource);
         Map<String, String> params = new HashMap<>();
         params.put("userId", apiConfig.getUserId());
         params.put("tenantId", apiConfig.getTenantId());
         params.put("knowledgeId", knowledgeId);
-        // 其他可选参数...
+        params.put("ak", apiConfig.getAk());
+        params.put("sk", apiConfig.getSk());
+        params.put("appKey", apiConfig.getApiKey());
+        params.put("secret", apiConfig.getSecret());
 
         String encryptedParams = encryptService.sm4Encrypt(apiConfig.getSk(), now,
                 HttpUtil.mapToJson(params));

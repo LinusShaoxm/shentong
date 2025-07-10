@@ -4,6 +4,7 @@ import com.shentong.api.cache.FolderScanCache;
 import com.shentong.api.config.ApiConfig;
 import com.shentong.api.model.FileUploadRecord;
 import com.shentong.api.service.DeepVisionService;
+import com.shentong.api.util.DateUtil;
 import com.shentong.api.util.FileUtil;
 
 import lombok.RequiredArgsConstructor;
@@ -253,9 +254,11 @@ public class FileScanService {
     }
 
     private void createNewKnowledgeBase() {
+        Calendar calendar = Calendar.getInstance();
+        int month = calendar.get(Calendar.MONTH) + 1;
         currentKnowledgeId = deepVisionService.createKnowledgeBase(
-                "知识库_" + System.currentTimeMillis(),
-                "深瞳文件工具_自动创建的知识库"
+                month + "月份整体分析报告",
+                month + "月份整体分析报告"
         );
         currentKnowledgeFileCount = 0;
         log.info("创建新知识库: {}", currentKnowledgeId);
