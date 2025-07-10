@@ -119,7 +119,7 @@ public class FileScanService {
         if (!Files.exists(cachePath)) {
             Files.createDirectories(cachePath);
         }
-        String mergedFileName = outputDir + "/" + folderName + "_合并.docx";
+        String mergedFileName = outputDir + "/" + folderName + "分析报告_合并.docx";
 
         try {
             for (File file : files) {
