@@ -60,9 +60,9 @@ public class FileScanService {
 
     private void processFiles(File rootDir) throws IOException, NoSuchAlgorithmException {
         // 获取所有子文件夹
-        File[] subDirs = rootDir.listFiles(File::isDirectory);
-        if (subDirs == null || subDirs.length == 0) {
-            log.info("未找到子目录");
+        File[] yearDirs = rootDir.listFiles(File::isDirectory);
+        if (yearDirs == null || yearDirs.length == 0) {
+            log.info("未找到年份子目录");
             return;
         }
 
@@ -70,41 +70,46 @@ public class FileScanService {
         String supportedExtensions = apiConfig.getFileScan().getSupportedExtensions();
         List<String> extensions = Arrays.asList(supportedExtensions.split(","));
 
-        for (File subDir : subDirs) {
-            log.info("\n处理目录: {}", subDir.getName());
-
-            if (folderScanCache.isFolderScanned(subDir.getPath())) {
-                System.out.println("文件夹已扫描过，跳过: " + subDir.getPath());
+        for (File yearDir : yearDirs) {
+            File[] subDirs = yearDir.listFiles(File::isDirectory);
+            if (subDirs == null || subDirs.length == 0) {
+                log.info("未找到月份子目录");
                 continue;
             }
-            // 一个文件夹对应一个知识库
-            resetKnowledgeTracking();
-            // 获取当前文件夹下所有支持的文件
-            List<File> files = new ArrayList<>();
-            try {
-                files = Files.walk(subDir.toPath())
-                        .filter(p -> {
-                            String fileName = p.toString().toLowerCase();
-                            return extensions.stream().anyMatch(fileName::endsWith);
-                        })
-                        .map(Path::toFile)
-                        .collect(Collectors.toList());
-            } catch (Exception e) {
-                log.error("获取当前文件夹下文件异常, 文件夹: {}, 异常信息:", subDir, e);
+            for (File subDir : subDirs) {
+                log.info("\n处理目录: {}", yearDir.getName() + "/" + subDir.getName());
+                if (folderScanCache.isFolderScanned(subDir.getPath())) {
+                    System.out.println("文件夹已扫描过，跳过: " + subDir.getPath());
+                    continue;
+                }
+                // 一个文件夹对应一个知识库
+                resetKnowledgeTracking();
+                // 获取当前文件夹下所有支持的文件
+                List<File> files = new ArrayList<>();
+                try {
+                    files = Files.walk(subDir.toPath())
+                            .filter(p -> {
+                                String fileName = p.toString().toLowerCase();
+                                return extensions.stream().anyMatch(fileName::endsWith) && fileName.equalsIgnoreCase(subDir.toPath() + "/merged.docx");
+                            })
+                            .map(Path::toFile)
+                            .collect(Collectors.toList());
+                } catch (Exception e) {
+                    log.error("获取当前文件夹下文件异常, 文件夹: {}, 异常信息:", yearDir.getName() + "/" + subDir.getName(), e);
+                }
+
+                if (files.isEmpty()) {
+                    log.info("目录 {} 中没有支持的文件", yearDir.getName() + "/" + subDir.getName());
+                    continue;
+                }
+
+                // 打印待处理文件信息
+                logFileInfo(files);
+                // 合并所有文件（docx, doc, txt）到一个 Word 文档
+                File mergedFile = mergeAllFilesToWord(files, subDir.getName());
+                processMergedDocument(mergedFile, subDir.getName());
+                folderScanCache.markFolderAsScanned(subDir.getPath());
             }
-
-            if (files.isEmpty()) {
-                log.info("目录 {} 中没有支持的文件", subDir.getName());
-                continue;
-            }
-
-            // 打印待处理文件信息
-            logFileInfo(files);
-
-            // 合并所有文件（docx, doc, txt）到一个 Word 文档
-            File mergedFile = mergeAllFilesToWord(files, subDir.getName());
-            processMergedDocument(mergedFile, subDir.getName());
-            folderScanCache.markFolderAsScanned(subDir.getPath());
         }
     }
 
@@ -265,10 +270,7 @@ public class FileScanService {
     private void createNewKnowledgeBase(String folderName) {
         String month = "";
         try {
-            month = folderName.substring(folderName.length() - 2);
-            if (month.startsWith("0")) {
-                month = month.replace("0", "");
-            }
+            month = folderName;
             log.info("根据文件夹生成知识库月份:{}", month);
         } catch (Exception e) {
             log.error("根据文件夹生成知识库月份异常:", e);
