@@ -107,7 +107,7 @@ public class FileScanService {
                 logFileInfo(files);
                 // 合并所有文件（docx, doc, txt）到一个 Word 文档
                 File mergedFile = mergeAllFilesToWord(files, yearDir.getName(), subDir.getName());
-                processMergedDocument(mergedFile, subDir.getName());
+                processMergedDocument(mergedFile, yearDir.getName(), subDir.getName());
                 folderScanCache.markFolderAsScanned(subDir.getPath());
             }
         }
@@ -216,11 +216,11 @@ public class FileScanService {
     /**
      * 处理合并后的 Word 文档（上传到知识库）
      */
-    private void processMergedDocument(File mergedFile, String folderName) {
+    private void processMergedDocument(File mergedFile, String yearName, String folderName) {
         try {
             // 知识库处理逻辑
             if (currentKnowledgeId == null || currentKnowledgeFileCount >= apiConfig.getKnowledgeBaseMaxFiles()) {
-                createNewKnowledgeBase(folderName);
+                createNewKnowledgeBase(yearName, folderName);
                 //currentKnowledgeId = "1";
             }
             if (Objects.isNull(currentKnowledgeId)) {
@@ -267,20 +267,12 @@ public class FileScanService {
         }
     }
 
-    private void createNewKnowledgeBase(String folderName) {
-        String month = "";
-        try {
-            month = folderName;
-            log.info("根据文件夹生成知识库月份:{}", month);
-        } catch (Exception e) {
-            log.error("根据文件夹生成知识库月份异常:", e);
-            Calendar calendar = Calendar.getInstance();
-            month = String.valueOf(calendar.get(Calendar.MONTH) + 1);
-        }
+    private void createNewKnowledgeBase(String yearName, String folderName) {
+        String name = yearName + "年" + folderName;
         try {
             currentKnowledgeId = deepVisionService.createKnowledgeBase(
-                    month + "月份整体分析报告",
-                    month + "月份整体分析报告");
+                    name + "月份整体分析报告",
+                    name + "月份整体分析报告");
         } catch (Exception e) {
             log.error("知识库创建失败:", e);
             currentKnowledgeId = null;
