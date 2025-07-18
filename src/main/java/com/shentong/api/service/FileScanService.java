@@ -106,7 +106,7 @@ public class FileScanService {
                 // 打印待处理文件信息
                 logFileInfo(files);
                 // 合并所有文件（docx, doc, txt）到一个 Word 文档
-                File mergedFile = mergeAllFilesToWord(files, subDir.getName());
+                File mergedFile = mergeAllFilesToWord(files, yearDir.getName(), subDir.getName());
                 processMergedDocument(mergedFile, subDir.getName());
                 folderScanCache.markFolderAsScanned(subDir.getPath());
             }
@@ -116,7 +116,7 @@ public class FileScanService {
     /**
      * 合并所有文件（docx, doc, txt）到一个 Word 文档
      */
-    private File mergeAllFilesToWord(List<File> files, String folderName) throws IOException {
+    private File mergeAllFilesToWord(List<File> files, String yearName, String folderName) throws IOException {
         XWPFDocument mergedDoc = new XWPFDocument();
         String outputDir = apiConfig.getFileScan().getOutputDir();
         // 不存在先创建
@@ -124,8 +124,8 @@ public class FileScanService {
         if (!Files.exists(cachePath)) {
             Files.createDirectories(cachePath);
         }
-        String mergedFileName = outputDir + "/" + folderName + "分析报告_合并.docx";
-
+        String mergedFileName = outputDir + "/" + yearName + "年" + folderName + "月分析报告.docx";
+        log.info("合并文件名称:{}", mergedFileName);
         try {
             for (File file : files) {
                 if (file.length() == 0) {
