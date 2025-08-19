@@ -106,8 +106,10 @@ public class FileScanService {
                 // 打印待处理文件信息
                 logFileInfo(files);
                 // 合并所有文件（docx, doc, txt）到一个 Word 文档
-                File mergedFile = mergeAllFilesToWord(files, yearDir.getName(), subDir.getName());
-                processMergedDocument(mergedFile, yearDir.getName(), subDir.getName());
+                //File mergedFile = mergeAllFilesToWord(files, yearDir.getName(), subDir.getName());
+                File merged_file = files.get(0);
+
+                processMergedDocument(merged_file, yearDir.getName(), subDir.getName());
                 folderScanCache.markFolderAsScanned(subDir.getPath());
             }
         }
@@ -228,7 +230,10 @@ public class FileScanService {
                 return;
             }
             // 上传合并后的 Word 文档
-            deepVisionService.uploadFileCreateUnit(currentKnowledgeId, mergedFile.getAbsolutePath());
+
+            String fileName = yearName + "年" + folderName + "月分析报告.docx";
+
+            deepVisionService.uploadFileCreateUnit(currentKnowledgeId, mergedFile.getAbsolutePath(), fileName);
             currentKnowledgeFileCount++;
 
             // 备份文件

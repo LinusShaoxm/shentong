@@ -162,7 +162,7 @@ public class DeepVisionService {
     }
 
     // 上传文件创建单元
-    public void uploadFileCreateUnit(String knowledgeId, String filePath) throws IOException {
+    public void uploadFileCreateUnit(String knowledgeId, String filePath,String fileName) throws IOException {
         String url = apiConfig.getApiBaseUrl() + "/knowledge/uploadFileCreateUnit";
         Date now = new Date();
         String token; // 实际项目中应该缓存token
@@ -181,7 +181,7 @@ public class DeepVisionService {
         ByteArrayResource resource = new ByteArrayResource(fileContent) {
             @Override
             public String getFilename() {
-                return path.getFileName().toString();
+                return fileName;
             }
         };
 
