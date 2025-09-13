@@ -3,19 +3,19 @@ package com.shentong.api.service;
 import com.shentong.api.cache.FolderScanCache;
 import com.shentong.api.config.ApiConfig;
 import com.shentong.api.model.FileUploadRecord;
-import com.shentong.api.service.DeepVisionService;
-import com.shentong.api.util.DateUtil;
 import com.shentong.api.util.FileUtil;
-
+import com.shentong.api.util.ProvinceUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
 import org.apache.poi.xwpf.usermodel.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
-import java.io.*;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.security.NoSuchAlgorithmException;
@@ -35,6 +35,9 @@ public class FileScanService {
 
     @Autowired
     private FolderScanCache folderScanCache;
+
+    @Autowired
+    private NameRelationService nameRelationService;
 
     @Scheduled(cron = "${deepvision.file-scan.cron}")
     public void scanFiles() throws IOException, NoSuchAlgorithmException {
@@ -87,10 +90,18 @@ public class FileScanService {
                 // 获取当前文件夹下所有支持的文件
                 List<File> files = new ArrayList<>();
                 try {
+//                    files = Files.walk(subDir.toPath())
+//                            .filter(p -> {
+//                                String fileName = p.toString().toLowerCase();
+//                                return extensions.stream().anyMatch(fileName::endsWith) && fileName.equalsIgnoreCase(subDir.toPath() + "/merged.docx");
+//                            })
+//                            .map(Path::toFile)
+//                            .collect(Collectors.toList());
+
                     files = Files.walk(subDir.toPath())
                             .filter(p -> {
                                 String fileName = p.toString().toLowerCase();
-                                return extensions.stream().anyMatch(fileName::endsWith) && fileName.equalsIgnoreCase(subDir.toPath() + "/merged.docx");
+                                return extensions.stream().anyMatch(fileName::endsWith);
                             })
                             .map(Path::toFile)
                             .collect(Collectors.toList());
@@ -107,9 +118,10 @@ public class FileScanService {
                 logFileInfo(files);
                 // 合并所有文件（docx, doc, txt）到一个 Word 文档
                 //File mergedFile = mergeAllFilesToWord(files, yearDir.getName(), subDir.getName());
-                File merged_file = files.get(0);
+                for (File file : files) {
+                    processMergedDocument(file, yearDir.getName(), subDir.getName());
 
-                processMergedDocument(merged_file, yearDir.getName(), subDir.getName());
+                }
                 folderScanCache.markFolderAsScanned(subDir.getPath());
             }
         }
@@ -215,14 +227,18 @@ public class FileScanService {
         }
     }
 
+
     /**
      * 处理合并后的 Word 文档（上传到知识库）
      */
     private void processMergedDocument(File mergedFile, String yearName, String folderName) {
         try {
+
+            String name = yearName + "年" + folderName + "月份整体分析报告";
+            currentKnowledgeId = nameRelationService.getIdName(name);
             // 知识库处理逻辑
             if (currentKnowledgeId == null || currentKnowledgeFileCount >= apiConfig.getKnowledgeBaseMaxFiles()) {
-                createNewKnowledgeBase(yearName, folderName);
+                createNewKnowledgeBase(name);
                 //currentKnowledgeId = "1";
             }
             if (Objects.isNull(currentKnowledgeId)) {
@@ -232,6 +248,57 @@ public class FileScanService {
             // 上传合并后的 Word 文档
 
             String fileName = yearName + "年" + folderName + "月分析报告.docx";
+
+            deepVisionService.uploadFileCreateUnit(currentKnowledgeId, mergedFile.getAbsolutePath(), fileName);
+            currentKnowledgeFileCount++;
+
+            // 备份文件
+            String backupPath = apiConfig.getFileScan().getBackupDir() +
+                    "/" + folderName + "_" + mergedFile.getName();
+            FileUtil.backupFile(mergedFile.getAbsolutePath(), backupPath);
+
+            // 记录日志
+            FileUploadRecord record = new FileUploadRecord();
+            record.setFileName(mergedFile.getName());
+            record.setFilePath(mergedFile.getAbsolutePath());
+            record.setBackupPath(backupPath);
+            record.setUploadTime(new Date());
+            record.setKnowledgeId(currentKnowledgeId);
+            // saveToDatabase(record);
+
+            log.info("合并文件 {} 已上传到知识库 {}", mergedFile.getName(), currentKnowledgeId);
+
+            if (!(mergedFile.getName().equalsIgnoreCase("merged.docx") || mergedFile.getName().equalsIgnoreCase("merged.doc"))) {
+                processProvinceDocument(mergedFile,yearName,folderName);
+            }
+        } catch (Exception e) {
+            log.error("处理合并文件失败: {}", mergedFile.getName(), e);
+            if (currentKnowledgeFileCount >= apiConfig.getKnowledgeBaseMaxFiles()) {
+                resetKnowledgeTracking();
+            }
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * 处理合并后的 Word 文档（上传到知识库）
+     */
+    private void processProvinceDocument(File mergedFile, String yearName, String folderName) {
+        try {
+            String name = ProvinceUtil.extractProvince(mergedFile.getName());
+            currentKnowledgeId = nameRelationService.getIdName(name);
+            // 知识库处理逻辑
+            if (currentKnowledgeId == null || currentKnowledgeFileCount >= apiConfig.getKnowledgeBaseMaxFiles()) {
+                createNewKnowledgeBase(name);
+                //currentKnowledgeId = "1";
+            }
+            if (Objects.isNull(currentKnowledgeId)) {
+                log.error("知识库Id为空");
+                return;
+            }
+            // 上传合并后的 Word 文档
+
+            String fileName = name + yearName + "年" + folderName + "月分析报告.docx";
 
             deepVisionService.uploadFileCreateUnit(currentKnowledgeId, mergedFile.getAbsolutePath(), fileName);
             currentKnowledgeFileCount++;
@@ -272,12 +339,27 @@ public class FileScanService {
         }
     }
 
-    private void createNewKnowledgeBase(String yearName, String folderName) {
-        String name = yearName + "年" + folderName;
+    private void createNewKnowledgeBase(String name) {
         try {
             currentKnowledgeId = deepVisionService.createKnowledgeBase(
-                    name + "月份整体分析报告",
-                    name + "月份整体分析报告");
+                    name,
+                    name);
+            currentKnowledgeId = UUID.randomUUID().toString();
+            nameRelationService.save(name,currentKnowledgeId);
+        } catch (Exception e) {
+            log.error("知识库创建失败:", e);
+            currentKnowledgeId = null;
+        }
+        currentKnowledgeFileCount = 0;
+        log.info("创建新知识库: {}", currentKnowledgeId);
+    }
+
+    private void createProvinceBase(String name) {
+        try {
+            currentKnowledgeId = deepVisionService.createKnowledgeBase(
+                    name,
+                    name);
+            nameRelationService.save(name,currentKnowledgeId);
         } catch (Exception e) {
             log.error("知识库创建失败:", e);
             currentKnowledgeId = null;

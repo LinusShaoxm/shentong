@@ -1,7 +1,28 @@
 server:
   port: 6651  # 应用运行端口 若占用可修改
 
+spring:
+  datasource:
+    url: jdbc:h2:file:D:\shentong\data\name_relation_db;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  # H2 Web 控制台（访问 http://localhost:8080/h2-console）
+  h2:
+    console:
+      enabled: true
+      path: /h2
+
+  # JPA 配置
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: update
+    database-platform: org.hibernate.dialect.H2Dialect
+
 deepvision:
+  env: test
   tenant-id: zyxx
   api-key: api_key_test
   secret: multibot@@zhiwei
@@ -14,10 +35,10 @@ deepvision:
   #api-base-url: http://127.0.0.1:20201/ds/api/v2/external  # 测试路径
   knowledge-base-max-files: 10  # 知识库最大文件数（可配置）
   file-scan:
-    dir: /Users/shaoxiumin/shentongScan/   # 需要扫描的文件目录
-    backup-dir: /Users/shaoxiumin/shentong/backup/ # 备份目录
-    output-dir: /Users/shaoxiumin/shentong/merge/ # 合并文件输出路径
-    cache-dir: /Users/shaoxiumin/shentong/cache/ # 合并文件输出路径
+    dir: D:\shentong\shentongScan\   # 需要扫描的文件目录
+    backup-dir: D:\shentong\backup\ # 备份目录
+    output-dir: D:\shentong\merge\ # 合并文件输出路径
+    cache-dir: D:\shentong\cache\ # 合并文件输出路径
     cache-on: false # 合并文件输出路径
     cron: 0/10 * * * * ?         # 每30s执行一次文件扫描上传操作
     clean-days: 7               # 备份文件保留天数

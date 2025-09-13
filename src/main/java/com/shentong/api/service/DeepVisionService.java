@@ -5,23 +5,19 @@ import com.alibaba.fastjson.JSONObject;
 import com.shentong.api.config.ApiConfig;
 import com.shentong.api.util.DateUtil;
 import com.shentong.api.util.HttpUtil;
-
 import lombok.extern.slf4j.Slf4j;
-
-import org.apache.commons.io.FileUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
-import org.springframework.core.io.FileSystemResource;
-import org.springframework.http.*;
-import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.web.multipart.MultipartFile;
 
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -29,6 +25,7 @@ import java.nio.file.Paths;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -42,6 +39,9 @@ public class DeepVisionService {
 
     @Autowired
     private RestTemplate restTemplate;
+
+    @Value("${deepvision.env}")
+    private String env;
 
     private static String STATIC_TOKEN = "5XAykdouNUp4dr2LG/TCGPNsSV4VKKgHiROXoGNtTRhb3BKWgZEsoFgBIgT/rfVD0wdHXzKhmSRgGJp1zIhltQ==";
 
@@ -98,13 +98,15 @@ public class DeepVisionService {
         String url = apiConfig.getApiBaseUrl() + "/knowledge/knowledgeAdd";
         Date now = new Date();
         String token = "";
+        if ("test".equals(env)) {
+            return UUID.randomUUID().toString();
+        }
         try {
             // 实际项目中应该缓存token
             token = getToken();
             log.error("创建知识库请求获取token成功 token:{}", token);
         } catch (Exception e) {
             log.error("创建知识库请求获取token异常 使用token样例:{}", STATIC_TOKEN);
-            token = STATIC_TOKEN;
         }
 
         Map<String, String> requestData = new HashMap<>();
@@ -163,6 +165,9 @@ public class DeepVisionService {
 
     // 上传文件创建单元
     public void uploadFileCreateUnit(String knowledgeId, String filePath,String fileName) throws IOException {
+        if ("test".equals(env)) {
+            return;
+        }
         String url = apiConfig.getApiBaseUrl() + "/knowledge/uploadFileCreateUnit";
         Date now = new Date();
         String token; // 实际项目中应该缓存token
