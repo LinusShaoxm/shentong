@@ -3,13 +3,11 @@ package com.shentong.api.service;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.shentong.api.config.ApiConfig;
+import com.shentong.api.model.UploadRecord;
 import com.shentong.api.util.DateUtil;
 import com.shentong.api.util.HttpUtil;
-
 import lombok.extern.slf4j.Slf4j;
-
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -40,11 +38,17 @@ public class DeepVisionService {
     private EncryptService encryptService;
 
     @Autowired
+    private UploadRecordService uploadRecordService;
+
+    @Autowired
     private RestTemplate restTemplate;
     private static String STATIC_TOKEN = "5XAykdouNUp4dr2LG/TCGPNsSV4VKKgHiROXoGNtTRhb3BKWgZEsoFgBIgT/rfVD0wdHXzKhmSRgGJp1zIhltQ==";
 
     // 获取token
     public String getToken() {
+        if ("test".equals(apiConfig.getEnv())) {
+            return STATIC_TOKEN;
+        }
         String url = apiConfig.getApiBaseUrl() + "/appKey/getToken";
         Date now = new Date();
 
@@ -162,10 +166,7 @@ public class DeepVisionService {
     }
 
     // 上传文件创建单元
-    public void uploadFileCreateUnit(String knowledgeId, String filePath, String fileName) throws IOException {
-        if ("test".equals(apiConfig.getEnv())) {
-            return;
-        }
+    public void uploadFileCreateUnit(String knowledgeId,String knowledgeName , String filePath, String fileName) throws IOException {
         String url = apiConfig.getApiBaseUrl() + "/knowledge/uploadFileCreateUnit";
         Date now = new Date();
         String token; // 实际项目中应该缓存token
@@ -178,61 +179,69 @@ public class DeepVisionService {
             token = STATIC_TOKEN;
         }
 
-        Path path = Paths.get(filePath);
-        byte[] fileContent = Files.readAllBytes(path);
+        if ("prod".equals(apiConfig.getEnv())) {
 
-        ByteArrayResource resource = new ByteArrayResource(fileContent) {
-            @Override
-            public String getFilename() {
-                return fileName;
+            Path path = Paths.get(filePath);
+            byte[] fileContent = Files.readAllBytes(path);
+
+            ByteArrayResource resource = new ByteArrayResource(fileContent) {
+                @Override
+                public String getFilename() {
+                    return fileName;
+                }
+            };
+
+            //构建 multipart/form-data 请求体
+            MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+
+            body.add("file", resource);
+            Map<String, String> params = new HashMap<>();
+            params.put("userId", apiConfig.getUserId());
+            params.put("tenantId", apiConfig.getTenantId());
+            params.put("knowledgeId", knowledgeId);
+            params.put("ak", apiConfig.getAk());
+            params.put("sk", apiConfig.getSk());
+            params.put("appKey", apiConfig.getApiKey());
+            params.put("secret", apiConfig.getSecret());
+
+            String encryptedParams = encryptService.sm4Encrypt(apiConfig.getSk(), now,
+                    HttpUtil.mapToJson(params));
+
+            body.add("data", encryptedParams);
+
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+            headers.set("date", DateUtil.formatGMT(now));
+            headers.set("App-Id", apiConfig.getAk());
+            headers.set("Authorization", "bearer " + token);
+
+            log.info("\n\n\n========= 上传文件创建单元接口 ========= 加密前数据:{} \n url:{} \n\n\n", JSONObject.toJSONString(params), url);
+            HttpEntity<MultiValueMap<String, Object>> multiValueMapHttpEntity = new HttpEntity<>(body, headers);
+            ResponseEntity<Map> response = restTemplate.postForEntity(url, multiValueMapHttpEntity, Map.class);
+
+            log.info("\n\n\n========= 上传文件创建单元接口调用成功 ========= \n response:{} \n\n\n", JSONObject.toJSONString(response));
+
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                log.error("上传文件创建单元失败: {}", response.getStatusCode());
+                throw new RuntimeException("上传文件创建单元失败: " + response.getStatusCode());
             }
-        };
 
-        //构建 multipart/form-data 请求体
-        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+            Map<String, Object> responseBody = response.getBody();
+            log.info("上传文件创建单元接口返回Body:{}", JSONObject.toJSONString(responseBody));
+            if (responseBody == null || !"bizSuccess".equals(responseBody.get("code"))) {
+                log.error("上传文件创建单元失败: {}", responseBody);
+                throw new RuntimeException("上传文件创建单元失败: " + responseBody);
+            }
 
-        body.add("file", resource);
-        Map<String, String> params = new HashMap<>();
-        params.put("userId", apiConfig.getUserId());
-        params.put("tenantId", apiConfig.getTenantId());
-        params.put("knowledgeId", knowledgeId);
-        params.put("ak", apiConfig.getAk());
-        params.put("sk", apiConfig.getSk());
-        params.put("appKey", apiConfig.getApiKey());
-        params.put("secret", apiConfig.getSecret());
-
-        String encryptedParams = encryptService.sm4Encrypt(apiConfig.getSk(), now,
-                HttpUtil.mapToJson(params));
-
-        body.add("data", encryptedParams);
-
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
-        headers.set("date", DateUtil.formatGMT(now));
-        headers.set("App-Id", apiConfig.getAk());
-        headers.set("Authorization", "bearer " + token);
-
-        log.info("\n\n\n========= 上传文件创建单元接口 ========= 加密前数据:{} \n url:{} \n\n\n", JSONObject.toJSONString(params), url);
-        HttpEntity<MultiValueMap<String, Object>> multiValueMapHttpEntity = new HttpEntity<>(body, headers);
-        ResponseEntity<Map> response = restTemplate.postForEntity(url, multiValueMapHttpEntity, Map.class);
-
-        log.info("\n\n\n========= 上传文件创建单元接口调用成功 ========= \n response:{} \n\n\n", JSONObject.toJSONString(response));
-
-        if (!response.getStatusCode().is2xxSuccessful()) {
-            log.error("上传文件创建单元失败: {}", response.getStatusCode());
-            throw new RuntimeException("上传文件创建单元失败: " + response.getStatusCode());
+            String encryptedResponse = (String) responseBody.get("data");
+            String decryptedResponse = encryptService.sm4Decrypt(apiConfig.getSk(), now, encryptedResponse);
+            log.info("文件 {} 上传并创建单元成功,:{}", filePath, decryptedResponse);
         }
-
-        Map<String, Object> responseBody = response.getBody();
-        log.info("上传文件创建单元接口返回Body:{}", JSONObject.toJSONString(responseBody));
-        if (responseBody == null || !"bizSuccess".equals(responseBody.get("code"))) {
-            log.error("上传文件创建单元失败: {}", responseBody);
-            throw new RuntimeException("上传文件创建单元失败: " + responseBody);
-        }
-
-        String encryptedResponse = (String) responseBody.get("data");
-        String decryptedResponse = encryptService.sm4Decrypt(apiConfig.getSk(), now, encryptedResponse);
-        log.info("文件 {} 上传并创建单元成功,:{}", filePath, decryptedResponse);
+        UploadRecord uploadRecord = new UploadRecord();
+        uploadRecord.setFileName(filePath);
+        uploadRecord.setKnowledgeId(knowledgeId);
+        uploadRecord.setKnowledgeName(knowledgeName);
+        uploadRecordService.save(uploadRecord);
     }
 }

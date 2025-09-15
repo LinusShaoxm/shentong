@@ -2,48 +2,5 @@ server:
   port: 6651  # 应用运行端口 若占用可修改
 
 spring:
-  datasource:
-    url: jdbc:h2:file:/Users/shaoxiumin/shentong/h2db/name_relation_db;DB_CLOSE_DELAY=-1
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
-
-  # H2 Web 控制台（访问 http://localhost:8080/h2-console）
-  h2:
-    console:
-      enabled: true
-      path: /h2
-
-  # JPA 配置
-  jpa:
-    show-sql: true
-    hibernate:
-      ddl-auto: update
-    database-platform: org.hibernate.dialect.H2Dialect
-
-deepvision:
-  env: test
-  csv: true
-  tenant-id: zyxx
-  api-key: api_key_test
-  secret: multibot@@zhiwei
-  ak: 7a04e90ad5e14b53
-  sk: b53a4eb44e2c42d98b0fbda93086337d
-  user-id: dwwenjie_1
-  workspace: team
-  workspace-id: team_zyxx_dwwenjie_1_1750402391551
-  api-base-url: http://10.250.186.247:20201/ds/api/v2/external  # 深瞳接口真实路径
-  #api-base-url: http://127.0.0.1:20201/ds/api/v2/external  # 测试路径
-  knowledge-base-max-files: 10  # 知识库最大文件数（可配置）
-  file-scan:
-    dir: /Users/shaoxiumin/shentongScan/   # 需要扫描的文件目录
-    backup-dir: /Users/shaoxiumin/shentong/backup/ # 备份目录
-    output-dir: /Users/shaoxiumin/shentong/merge/ # 合并文件输出路径
-    cache-dir: /Users/shaoxiumin/shentong/cache/ # 本地缓存路径
-    cache-on: false # 是否开启本地缓存
-    cron: 0/10 * * * * ?         # 执行周期
-    clean-days: 7               # 备份文件保留天数
-    supported-extensions: "docx,doc,txt" # 支持的文件扩展名（可配置）
-
-  log:
-    dir: /Users/shaoxiumin/workspace/logs/shentong   # 日志目录，应用的运行日志
+  profiles:
+    active: win

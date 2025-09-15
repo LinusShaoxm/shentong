@@ -3,26 +3,20 @@ package com.shentong.api.service;
 import com.opencsv.CSVWriter;
 import com.shentong.api.cache.FolderScanCache;
 import com.shentong.api.config.ApiConfig;
-import com.shentong.api.model.FileUploadRecord;
+import com.shentong.api.model.UploadRecord;
 import com.shentong.api.util.FileUtil;
 import com.shentong.api.util.ProvinceUtil;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
+import org.apache.commons.lang3.StringUtils;
 import org.apache.poi.xwpf.usermodel.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -42,6 +36,9 @@ public class FileScanService {
 
     @Autowired
     private NameRelationService nameRelationService;
+
+    @Autowired
+    private UploadRecordService uploadRecordService;
 
     @Scheduled(cron = "${deepvision.file-scan.cron}")
     public void scanFiles() throws Exception {
@@ -123,7 +120,7 @@ public class FileScanService {
                 // 合并所有文件（docx, doc, txt）到一个 Word 文档
                 //File mergedFile = mergeAllFilesToWord(files, yearDir.getName(), subDir.getName());
                 for (File file : files) {
-                    if (apiConfig.isCsv()) {
+                    if (apiConfig.isCsv() && file.getName().endsWith(".docx")) {
                         String csvPath = file.getAbsolutePath().replace(".docx", ".csv");
                         convertWordToStructuredCSV(file.getAbsolutePath(), csvPath);
                         // 1. 使用 File 类获取 CSV 文件
@@ -136,8 +133,6 @@ public class FileScanService {
                         }
                     }
                     processMergedDocument(file, yearDir.getName(), subDir.getName());
-
-
                 }
                 folderScanCache.markFolderAsScanned(subDir.getPath());
             }
@@ -295,7 +290,11 @@ public class FileScanService {
 
                 String fileName = yearName + "年" + folderName + "月分析报告.csv";
 
-                deepVisionService.uploadFileCreateUnit(currentKnowledgeId, mergedFile.getAbsolutePath(), fileName);
+                Optional<UploadRecord> uploadRecord = uploadRecordService.findByKnowledgeIdAndFileName(currentKnowledgeId, mergedFile.getAbsolutePath());
+                if (uploadRecord.isPresent()) {
+                    return;
+                }
+                deepVisionService.uploadFileCreateUnit(currentKnowledgeId, name, mergedFile.getAbsolutePath(), fileName);
                 currentKnowledgeFileCount++;
 
                 // 备份文件
@@ -321,7 +320,7 @@ public class FileScanService {
      */
     private void processProvinceDocument(File mergedFile, String yearName, String folderName) {
         try {
-            String name = ProvinceUtil.extractProvince(mergedFile.getName());
+            String name = ProvinceUtil.extractProvince(mergedFile.getName()) + "数据源";
             currentKnowledgeId = nameRelationService.getIdName(name);
             // 知识库处理逻辑
             //if (currentKnowledgeId == null || currentKnowledgeFileCount >= apiConfig.getKnowledgeBaseMaxFiles()) {
@@ -337,7 +336,7 @@ public class FileScanService {
 
             String fileName = name + yearName + "年" + folderName + "月分析报告.docx";
 
-            deepVisionService.uploadFileCreateUnit(currentKnowledgeId, mergedFile.getAbsolutePath(), fileName);
+            deepVisionService.uploadFileCreateUnit(currentKnowledgeId, name, mergedFile.getAbsolutePath(), fileName);
             currentKnowledgeFileCount++;
 
             // 备份文件
@@ -372,7 +371,9 @@ public class FileScanService {
             currentKnowledgeId = deepVisionService.createKnowledgeBase(
                     name,
                     name);
-            nameRelationService.save(name, currentKnowledgeId);
+            if (StringUtils.isNoneEmpty(currentKnowledgeId)) {
+                nameRelationService.save(name, currentKnowledgeId);
+            }
         } catch (Exception e) {
             log.error("知识库创建失败:", e);
             currentKnowledgeId = null;
