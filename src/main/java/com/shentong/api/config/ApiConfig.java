@@ -9,6 +9,8 @@ import org.springframework.context.annotation.Configuration;
 @ConfigurationProperties(prefix = "deepvision")
 public class ApiConfig {
     private String tenantId;
+    private String env;
+    private boolean csv;
     private String apiKey;
     private String secret;
     private String ak;

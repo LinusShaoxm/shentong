@@ -1,12 +1,15 @@
 package com.shentong.api.service;
 
+import com.opencsv.CSVWriter;
 import com.shentong.api.cache.FolderScanCache;
 import com.shentong.api.config.ApiConfig;
 import com.shentong.api.model.FileUploadRecord;
 import com.shentong.api.util.FileUtil;
 import com.shentong.api.util.ProvinceUtil;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
 import org.apache.poi.xwpf.usermodel.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -15,6 +18,7 @@ import org.springframework.stereotype.Service;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
@@ -40,7 +44,7 @@ public class FileScanService {
     private NameRelationService nameRelationService;
 
     @Scheduled(cron = "${deepvision.file-scan.cron}")
-    public void scanFiles() throws IOException, NoSuchAlgorithmException {
+    public void scanFiles() throws Exception {
         log.info("===== 开始文件扫描处理 =====");
 
         String scanDir = apiConfig.getFileScan().getDir();
@@ -61,7 +65,7 @@ public class FileScanService {
         log.info("===== 处理完成 =====");
     }
 
-    private void processFiles(File rootDir) throws IOException, NoSuchAlgorithmException {
+    private void processFiles(File rootDir) throws Exception {
         // 获取所有子文件夹
         File[] yearDirs = rootDir.listFiles(File::isDirectory);
         if (yearDirs == null || yearDirs.length == 0) {
@@ -119,12 +123,56 @@ public class FileScanService {
                 // 合并所有文件（docx, doc, txt）到一个 Word 文档
                 //File mergedFile = mergeAllFilesToWord(files, yearDir.getName(), subDir.getName());
                 for (File file : files) {
+                    if (apiConfig.isCsv()) {
+                        String csvPath = file.getAbsolutePath().replace(".docx", ".csv");
+                        convertWordToStructuredCSV(file.getAbsolutePath(), csvPath);
+                        // 1. 使用 File 类获取 CSV 文件
+                        File csvFile = new File(csvPath);
+                        if (csvFile.exists()) {
+                            log.info("CSV 文件已生成，路径: " + csvFile.getAbsolutePath());
+                            file = csvFile;
+                        } else {
+                            log.error("CSV 文件不存在！");
+                        }
+                    }
                     processMergedDocument(file, yearDir.getName(), subDir.getName());
-
                 }
                 folderScanCache.markFolderAsScanned(subDir.getPath());
             }
         }
+    }
+
+
+    public static void convertWordToStructuredCSV(String wordPath, String csvPath) throws Exception {
+        XWPFDocument document = new XWPFDocument(Files.newInputStream(Paths.get(wordPath)));
+
+        try (CSVWriter csvWriter = new CSVWriter(new FileWriter(csvPath))) {
+            // 遍历 Word 内容
+            for (IBodyElement element : document.getBodyElements()) {
+                if (element.getElementType() == BodyElementType.PARAGRAPH) {
+                    // 处理段落（文字）
+                    XWPFParagraph paragraph = (XWPFParagraph) element;
+                    String text = paragraph.getText().trim();
+                    if (!text.isEmpty()) {
+                        csvWriter.writeNext(new String[]{"TEXT", text});
+                    }
+                } else if (element.getElementType() == BodyElementType.TABLE) {
+                    // 处理表格
+                    XWPFTable table = (XWPFTable) element;
+                    for (XWPFTableRow row : table.getRows()) {
+                        StringBuilder rowData = new StringBuilder();
+                        for (XWPFTableCell cell : row.getTableCells()) {
+                            // 用 "|" 分隔单元格（避免 CSV 逗号冲突）
+                            rowData.append("\"").append(cell.getText().trim()).append("\"|");
+                        }
+                        if (rowData.length() > 0) {
+                            csvWriter.writeNext(new String[]{"TABLE", rowData.substring(0, rowData.length() - 1)});
+                        }
+                    }
+                }
+            }
+        }
+        document.close();
     }
 
     /**
@@ -247,7 +295,7 @@ public class FileScanService {
             }
             // 上传合并后的 Word 文档
 
-            String fileName = yearName + "年" + folderName + "月分析报告.docx";
+            String fileName = yearName + "年" + folderName + "月分析报告.csv";
 
             deepVisionService.uploadFileCreateUnit(currentKnowledgeId, mergedFile.getAbsolutePath(), fileName);
             currentKnowledgeFileCount++;
@@ -269,7 +317,7 @@ public class FileScanService {
             log.info("合并文件 {} 已上传到知识库 {}", mergedFile.getName(), currentKnowledgeId);
 
             if (!(mergedFile.getName().equalsIgnoreCase("merged.docx") || mergedFile.getName().equalsIgnoreCase("merged.doc"))) {
-                processProvinceDocument(mergedFile,yearName,folderName);
+                processProvinceDocument(mergedFile, yearName, folderName);
             }
         } catch (Exception e) {
             log.error("处理合并文件失败: {}", mergedFile.getName(), e);
@@ -345,7 +393,7 @@ public class FileScanService {
                     name,
                     name);
             currentKnowledgeId = UUID.randomUUID().toString();
-            nameRelationService.save(name,currentKnowledgeId);
+            nameRelationService.save(name, currentKnowledgeId);
         } catch (Exception e) {
             log.error("知识库创建失败:", e);
             currentKnowledgeId = null;
@@ -359,7 +407,7 @@ public class FileScanService {
             currentKnowledgeId = deepVisionService.createKnowledgeBase(
                     name,
                     name);
-            nameRelationService.save(name,currentKnowledgeId);
+            nameRelationService.save(name, currentKnowledgeId);
         } catch (Exception e) {
             log.error("知识库创建失败:", e);
             currentKnowledgeId = null;

@@ -39,10 +39,6 @@ public class DeepVisionService {
 
     @Autowired
     private RestTemplate restTemplate;
-
-    @Value("${deepvision.env}")
-    private String env;
-
     private static String STATIC_TOKEN = "5XAykdouNUp4dr2LG/TCGPNsSV4VKKgHiROXoGNtTRhb3BKWgZEsoFgBIgT/rfVD0wdHXzKhmSRgGJp1zIhltQ==";
 
     // 获取token
@@ -98,7 +94,7 @@ public class DeepVisionService {
         String url = apiConfig.getApiBaseUrl() + "/knowledge/knowledgeAdd";
         Date now = new Date();
         String token = "";
-        if ("test".equals(env)) {
+        if ("test".equals(apiConfig.getEnv())) {
             return UUID.randomUUID().toString();
         }
         try {
@@ -165,7 +161,7 @@ public class DeepVisionService {
 
     // 上传文件创建单元
     public void uploadFileCreateUnit(String knowledgeId, String filePath,String fileName) throws IOException {
-        if ("test".equals(env)) {
+        if ("test".equals(apiConfig.getEnv())) {
             return;
         }
         String url = apiConfig.getApiBaseUrl() + "/knowledge/uploadFileCreateUnit";
