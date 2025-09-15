@@ -136,6 +136,8 @@ public class FileScanService {
                         }
                     }
                     processMergedDocument(file, yearDir.getName(), subDir.getName());
+
+
                 }
                 folderScanCache.markFolderAsScanned(subDir.getPath());
             }
@@ -281,41 +283,27 @@ public class FileScanService {
      */
     private void processMergedDocument(File mergedFile, String yearName, String folderName) {
         try {
-
             String name = yearName + "年" + folderName + "月份整体分析报告";
             currentKnowledgeId = nameRelationService.getIdName(name);
             // 知识库处理逻辑
-            if (currentKnowledgeId == null || currentKnowledgeFileCount >= apiConfig.getKnowledgeBaseMaxFiles()) {
+            //if (currentKnowledgeId == null || currentKnowledgeFileCount >= apiConfig.getKnowledgeBaseMaxFiles()) {
+            if (currentKnowledgeId == null) {
                 createNewKnowledgeBase(name);
-                //currentKnowledgeId = "1";
             }
-            if (Objects.isNull(currentKnowledgeId)) {
-                log.error("知识库Id为空");
-                return;
+            if (Objects.nonNull(currentKnowledgeId)) {
+                // 上传合并后的 Word 文档
+
+                String fileName = yearName + "年" + folderName + "月分析报告.csv";
+
+                deepVisionService.uploadFileCreateUnit(currentKnowledgeId, mergedFile.getAbsolutePath(), fileName);
+                currentKnowledgeFileCount++;
+
+                // 备份文件
+                String backupPath = apiConfig.getFileScan().getBackupDir() +
+                        "/" + folderName + "_" + mergedFile.getName();
+                FileUtil.backupFile(mergedFile.getAbsolutePath(), backupPath);
             }
-            // 上传合并后的 Word 文档
-
-            String fileName = yearName + "年" + folderName + "月分析报告.csv";
-
-            deepVisionService.uploadFileCreateUnit(currentKnowledgeId, mergedFile.getAbsolutePath(), fileName);
-            currentKnowledgeFileCount++;
-
-            // 备份文件
-            String backupPath = apiConfig.getFileScan().getBackupDir() +
-                    "/" + folderName + "_" + mergedFile.getName();
-            FileUtil.backupFile(mergedFile.getAbsolutePath(), backupPath);
-
-            // 记录日志
-            FileUploadRecord record = new FileUploadRecord();
-            record.setFileName(mergedFile.getName());
-            record.setFilePath(mergedFile.getAbsolutePath());
-            record.setBackupPath(backupPath);
-            record.setUploadTime(new Date());
-            record.setKnowledgeId(currentKnowledgeId);
-            // saveToDatabase(record);
-
             log.info("合并文件 {} 已上传到知识库 {}", mergedFile.getName(), currentKnowledgeId);
-
             if (!(mergedFile.getName().equalsIgnoreCase("merged.docx") || mergedFile.getName().equalsIgnoreCase("merged.doc"))) {
                 processProvinceDocument(mergedFile, yearName, folderName);
             }
@@ -336,7 +324,8 @@ public class FileScanService {
             String name = ProvinceUtil.extractProvince(mergedFile.getName());
             currentKnowledgeId = nameRelationService.getIdName(name);
             // 知识库处理逻辑
-            if (currentKnowledgeId == null || currentKnowledgeFileCount >= apiConfig.getKnowledgeBaseMaxFiles()) {
+            //if (currentKnowledgeId == null || currentKnowledgeFileCount >= apiConfig.getKnowledgeBaseMaxFiles()) {
+            if (currentKnowledgeId == null) {
                 createNewKnowledgeBase(name);
                 //currentKnowledgeId = "1";
             }
@@ -355,15 +344,6 @@ public class FileScanService {
             String backupPath = apiConfig.getFileScan().getBackupDir() +
                     "/" + folderName + "_" + mergedFile.getName();
             FileUtil.backupFile(mergedFile.getAbsolutePath(), backupPath);
-
-            // 记录日志
-            FileUploadRecord record = new FileUploadRecord();
-            record.setFileName(mergedFile.getName());
-            record.setFilePath(mergedFile.getAbsolutePath());
-            record.setBackupPath(backupPath);
-            record.setUploadTime(new Date());
-            record.setKnowledgeId(currentKnowledgeId);
-            // saveToDatabase(record);
 
             log.info("合并文件 {} 已上传到知识库 {}", mergedFile.getName(), currentKnowledgeId);
 
@@ -392,7 +372,6 @@ public class FileScanService {
             currentKnowledgeId = deepVisionService.createKnowledgeBase(
                     name,
                     name);
-            currentKnowledgeId = UUID.randomUUID().toString();
             nameRelationService.save(name, currentKnowledgeId);
         } catch (Exception e) {
             log.error("知识库创建失败:", e);

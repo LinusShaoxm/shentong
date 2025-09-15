@@ -5,7 +5,9 @@ import com.alibaba.fastjson.JSONObject;
 import com.shentong.api.config.ApiConfig;
 import com.shentong.api.util.DateUtil;
 import com.shentong.api.util.HttpUtil;
+
 import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
@@ -140,15 +142,15 @@ public class DeepVisionService {
 
 
         if (!response.getStatusCode().is2xxSuccessful()) {
-            log.error("创建知识库失败: {}", response.getStatusCode());
-            throw new RuntimeException("创建知识库失败: " + response.getStatusCode());
+            log.error("创建知识库[{}]失败: {}", name, response.getStatusCode());
+            throw new RuntimeException("创建知识库[" + name + "]失败: " + response.getStatusCode());
         }
 
         Map<String, Object> responseBody = response.getBody();
         log.info("创建知识库接口返回Body:{}", JSONObject.toJSONString(responseBody));
         if (responseBody == null || !"bizSuccess".equals(responseBody.get("code"))) {
             log.error("创建知识库失败: {}", responseBody);
-            throw new RuntimeException("创建知识库失败: " + responseBody);
+            throw new RuntimeException("创建知识库[" + name + "]失败: " + responseBody);
         }
 
         String encryptedResponse = (String) responseBody.get("data");
@@ -160,7 +162,7 @@ public class DeepVisionService {
     }
 
     // 上传文件创建单元
-    public void uploadFileCreateUnit(String knowledgeId, String filePath,String fileName) throws IOException {
+    public void uploadFileCreateUnit(String knowledgeId, String filePath, String fileName) throws IOException {
         if ("test".equals(apiConfig.getEnv())) {
             return;
         }
@@ -213,7 +215,7 @@ public class DeepVisionService {
 
         log.info("\n\n\n========= 上传文件创建单元接口 ========= 加密前数据:{} \n url:{} \n\n\n", JSONObject.toJSONString(params), url);
         HttpEntity<MultiValueMap<String, Object>> multiValueMapHttpEntity = new HttpEntity<>(body, headers);
-        ResponseEntity<Map> response = restTemplate.postForEntity(url, multiValueMapHttpEntity , Map.class);
+        ResponseEntity<Map> response = restTemplate.postForEntity(url, multiValueMapHttpEntity, Map.class);
 
         log.info("\n\n\n========= 上传文件创建单元接口调用成功 ========= \n response:{} \n\n\n", JSONObject.toJSONString(response));
 
